@@ -56,9 +56,11 @@ public:
 
     // Filters (implemented in filters.cpp)
     Image gradX() const;
+	Image gradXGPGPU() const;
     void fillMinX(float vMin);
     void fillMaxX(float vMin);
     Image boxFilter(int radius) const;
+	Image boxFilterGPGPU(int radius) const;
     void median(int radius, Image& M) const;
     Image medianColor(int radius) const;
     Image weightedMedianColor(const Image& guidance,

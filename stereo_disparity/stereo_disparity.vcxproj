@@ -153,6 +153,8 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <CudaCompile Include="costVolumeGPGPU.cu" />
+    <CudaCompile Include="filters.cu" />
     <CudaCompile Include="kernel.cu" />
   </ItemGroup>
   <ItemGroup>
@@ -166,6 +168,8 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
   <ItemGroup>
     <ClInclude Include="cmdLine.h" />
     <ClInclude Include="costVolume.h" />
+    <ClInclude Include="cudaErrorCheck.cuh" />
+    <ClInclude Include="deviceProperties.cuh" />
     <ClInclude Include="image.h" />
     <ClInclude Include="io_png.h" />
     <ClInclude Include="occlusion.h" />

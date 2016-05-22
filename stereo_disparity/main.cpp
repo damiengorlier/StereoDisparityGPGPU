@@ -11,12 +11,24 @@ static const char* OUTFILE2 = "disparity_occlusion.png";
 static const char* OUTFILE3 = "disparity_occlusion_filled.png";
 static const char* OUTFILE4 = "disparity_occlusion_filled_smoothed.png";
 
+struct ParamGen {
+	int gpgpu_acc; ///< Use of GPGPU acceleration
+
+	// Constructor with default parameters
+	ParamGen()
+		: gpgpu_acc(1) {}
+};
+
 static void usage(const char* name) {
+	ParamGen g;
 	ParamGuidedFilter p;
 	ParamOcclusion q;
 	std::cerr << "Stereo Disparity through Cost Aggregation with Guided Filter\n"
 		<< "Usage: " << name << " [options] im1.png im2.png dmin dmax\n\n"
 		<< "Options (default values in parentheses)\n"
+		<< "General parameters:\n"
+		<< "    -GPU acceleration: GPGPU computation ("
+		<< g.gpgpu_acc << ")\n"
 		<< "Cost-volume filtering parameters:\n"
 		<< "    -R radius: radius of the guided filter ("
 		<< p.kernel_radius << ")\n"
@@ -47,6 +59,9 @@ int main(int argc, char *argv[])
 	int grayMin = 255, grayMax = 0;
 	char sense = 'r'; // Camera motion direction: 'r'=to-right, 'l'=to-left
 	CmdLine cmd;
+
+	ParamGen paramGen; // General parameters
+	cmd.add(make_option('GPU', paramGen.gpgpu_acc));
 
 	ParamGuidedFilter paramGF; // Parameters for cost-volume filtering
 	cmd.add(make_option('R', paramGF.kernel_radius));
