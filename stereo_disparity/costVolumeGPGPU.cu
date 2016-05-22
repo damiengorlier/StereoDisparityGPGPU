@@ -1,6 +1,6 @@
-#ifndef __CUDACC__  
-	#define __CUDACC__
-#endif
+//#ifndef __CUDACC__  
+//	#define __CUDACC__
+//#endif
 
 #include "costVolume.h"
 #include "image.h"
@@ -11,7 +11,7 @@
 
 #include <iostream>
 
-cudaError_t costVolumeWithCuda(int *c, const int *a, const int *b, unsigned int size);
+void costVolumeWithCuda(int *c, const int *a, const int *b, unsigned int size);
 
 __global__ void costVolumeKernel(int *c, const int *a, const int *b)
 {
@@ -37,7 +37,9 @@ Image filter_cost_volume_GPGPU(Image im1Color, Image im2Color, int dispMin, int 
 	rgb_to_gray(&im2R(0, 0), &im2G(0, 0), &im2B(0, 0), width, height, &im2Gray(0, 0));
 	Image gradient1 = im1Gray.gradXGPGPU();
 	Image gradient2 = im2Gray.gradXGPGPU();
+
+	return disparity;
 }
 
-cudaError_t costVolumeWithCuda() {
+void costVolumeWithCuda() {
 }

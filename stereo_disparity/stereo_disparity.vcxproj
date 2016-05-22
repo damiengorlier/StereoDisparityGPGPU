@@ -154,8 +154,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
   </ItemDefinitionGroup>
   <ItemGroup>
     <CudaCompile Include="costVolumeGPGPU.cu" />
-    <CudaCompile Include="filters.cu" />
-    <CudaCompile Include="kernel.cu" />
+    <CudaCompile Include="filtersGPGPU.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="costVolume.cpp" />

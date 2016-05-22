@@ -1,6 +1,6 @@
-#ifndef __CUDACC__  
-	#define __CUDACC__
-#endif
+//#ifndef __CUDACC__  
+//	#define __CUDACC__
+//#endif
 
 #include "image.h"
 #include "cudaErrorCheck.cuh"
@@ -20,15 +20,15 @@ __global__ void gradXKernel(float *dev_out, const float *dev_in, const int width
 {
 	extern __shared__ float sharedMemory[];
 
-	const int i = threadIdx.x - 1 + blockIdx.x * (blockDim.x - 2);
-	const int j = threadIdx.y + blockIdx.y * blockDim.y;
+	int i = threadIdx.x - 1 + blockIdx.x * (blockDim.x - 2);
+	int j = threadIdx.y + blockIdx.y * blockDim.y;
 
 	if (i < 0) {
 		i = 0;
 	}
 
 	if (i > width - 1) {
-		i = width - 1
+		i = width - 1;
 	}
 
 	const int inBlockIdx = threadIdx.y * blockDim.x + threadIdx.x;
@@ -37,7 +37,7 @@ __global__ void gradXKernel(float *dev_out, const float *dev_in, const int width
 
 	__syncthreads();
 
-	if (threadIdx.x > 0 && threadIdx <= blockDim.x - 2) {
+	if (threadIdx.x > 0 && threadIdx.x <= blockDim.x - 2) {
 		dev_out[globalIdx] = .5f * (sharedMemory[inBlockIdx + 1] - sharedMemory[inBlockIdx - 1]);
 	}
 
@@ -68,12 +68,12 @@ Image Image::gradXGPGPU() const {
 	return D;
 }
 
-Image Image::boxFilterGPGPU(int radius) const {
-}
+//Image Image::boxFilterGPGPU(int radius) const {
+//}
 
 void gradXWithCuda(float *host_out, const float *host_in, dim3 imSize, dim3 grid, dim3 block) {
-	int *dev_in = 0;
-	int *dev_out = 0;
+	float *dev_in = 0;
+	float *dev_out = 0;
 	int size = imSize.x * imSize.y * sizeof(float);
 
 	// Choose which GPU to run on, change this on a multi-GPU system.
