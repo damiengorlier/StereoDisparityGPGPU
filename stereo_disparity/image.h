@@ -54,12 +54,16 @@ public:
     Image operator*(const Image& I) const;
     Image& operator+=(const Image& I);
 
+	Image plusGPGPU(const Image& I) const;
+	Image minusGPGPU(const Image& I) const;
+	Image multipliedGPGPU(const Image& I) const;
+
     // Filters (implemented in filters.cpp)
     Image gradX() const;
 	Image gradXGPGPU() const;
 	Image integral() const; // Test
-	Image integralGPGPU() const;
-	Image scanGPGPU() const;  // Test
+	Image integralGPGPU(bool addOri) const;
+	Image scanGPGPU(bool addOri) const;  // Test
 	Image transposeGPGPU() const; // Test
     void fillMinX(float vMin);
     void fillMaxX(float vMin);

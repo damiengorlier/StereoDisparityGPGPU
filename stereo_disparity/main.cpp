@@ -73,37 +73,37 @@ void test() {
 
 	// TESTS - Commenté == OK
 
-	//Image gradient1 = im1.gradXGPGPU();
-	//Image gradient2 = im1.gradX();
+	Image r = im1.r();
 
-	//const float* out_grad1 = &(const_cast<Image&>(gradient1))(0, 0);
-	//const float* out_grad2 = &(const_cast<Image&>(gradient2))(0, 0);
+	// GRADIENT
 
-	//io_png_write_f32("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\gradXGPGPU.png", out_grad1, gradient1.width(), gradient1.height(), 1);
-	//io_png_write_f32("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\gradX.png", out_grad2, gradient2.width(), gradient2.height(), 1);
+	Image gradient1 = r.gradXGPGPU();
+	Image gradient2 = r.gradX();
+	const float* out_grad1 = &(const_cast<Image&>(gradient1))(0, 0);
+	const float* out_grad2 = &(const_cast<Image&>(gradient2))(0, 0);
+	io_png_write_f32("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\gradXGPGPU.png", out_grad1, gradient1.width(), gradient1.height(), 1);
+	io_png_write_f32("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\gradX.png", out_grad2, gradient2.width(), gradient2.height(), 1);
 
-	//Image r = im1.r();
+	// TRANSPOSE
+
 	//Image r_t = r.transposeGPGPU();
-
 	//const float* out_t1 = &(const_cast<Image&>(r))(0, 0);
 	//const float* out_t2 = &(const_cast<Image&>(r_t))(0, 0);
-
 	//io_png_write_f32("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\t_normal.png", out_t1, r.width(), r.height(), 1);
 	//io_png_write_f32("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\t_transpose.png", out_t2, r_t.width(), r_t.height(), 1);
 
-	//Image scan0 = im1.r();
-	//Image scan1 = scan0.integral();
-	//Image scan2 = scan0.integralGPGPU();
+	// INTEGRAL
 
-	//const float* out_scan0 = &(const_cast<Image&>(scan0))(0, 0);
+	//Image scan1 = r.integral();
+	//Image scan2 = r.integralGPGPU(true);
+	//const float* out_scan0 = &(const_cast<Image&>(r))(0, 0);
 	//const float* out_scan1 = &(const_cast<Image&>(scan1))(0, 0);
 	//const float* out_scan2 = &(const_cast<Image&>(scan2))(0, 0);
-
 	//std::ofstream out_file0("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\normal.txt");
 	//if (out_file0.is_open())
 	//{
-	//	for (int i = 0; i < scan0.width() * scan0.height(); i++){
-	//		if (i % scan0.width() == 0 && i != 0) {
+	//	for (int i = 0; i < r.width() * r.height(); i++){
+	//		if (i % r.width() == 0 && i != 0) {
 	//			out_file0 << std::endl << out_scan0[i] << " ";
 	//		}
 	//		else {
@@ -112,7 +112,6 @@ void test() {
 	//	}
 	//	out_file0.close();
 	//}
-
 	//std::ofstream out_file1("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\integral.txt");
 	//if (out_file1.is_open())
 	//{
@@ -126,7 +125,6 @@ void test() {
 	//	}
 	//	out_file1.close();
 	//}
-
 	//std::ofstream out_file2("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\integralGPGPU.txt");
 	//if (out_file2.is_open())
 	//{
@@ -140,6 +138,15 @@ void test() {
 	//	}
 	//	out_file2.close();
 	//}
+
+	// BOXFILTER
+
+	//Image box1 = r.boxFilter(4);
+	//Image box2 = r.boxFilterGPGPU(4);
+	//const float* out_box1 = &(const_cast<Image&>(box1))(0, 0);
+	//const float* out_box2 = &(const_cast<Image&>(box2))(0, 0);
+	//io_png_write_f32("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\box.png", out_box1, box1.width(), box1.height(), 1);
+	//io_png_write_f32("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\boxGPGPU.png", out_box2, box2.width(), box2.height(), 1);
 }
 
 int main(int argc, char *argv[])

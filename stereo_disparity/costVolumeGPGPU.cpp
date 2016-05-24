@@ -1,22 +1,13 @@
-//#ifndef __CUDACC__  
-//	#define __CUDACC__
-//#endif
-
 #include "costVolume.h"
 #include "image.h"
 #include "io_png.h"
-
-#include "cuda_runtime.h"
-#include "device_launch_parameters.h"
 
 #include <iostream>
 
 void costVolumeWithCuda(int *c, const int *a, const int *b, unsigned int size);
 
-__global__ void costVolumeKernel(int *c, const int *a, const int *b)
-{
-	int i = threadIdx.x;
-	c[i] = a[i] + b[i];
+static Image covarianceGPGPU(Image im1, Image mean1, Image im2, Image mean2, int r) {
+	return (im1*im2).boxFilterGPGPU(r) - mean1*mean2;
 }
 
 Image filter_cost_volume_GPGPU(Image im1Color, Image im2Color, int dispMin, int dispMax, const ParamGuidedFilter& param) {
@@ -42,6 +33,13 @@ Image filter_cost_volume_GPGPU(Image im1Color, Image im2Color, int dispMin, int 
 	Image meanIm1R = im1R.boxFilterGPGPU(r);
 	Image meanIm1G = im1G.boxFilterGPGPU(r);
 	Image meanIm1B = im1B.boxFilterGPGPU(r);
+
+	Image varIm1RR = covarianceGPGPU(im1R, meanIm1R, im1R, meanIm1R, r);
+	Image varIm1RG = covarianceGPGPU(im1R, meanIm1R, im1G, meanIm1G, r);
+	Image varIm1RB = covarianceGPGPU(im1R, meanIm1R, im1B, meanIm1B, r);
+	Image varIm1GG = covarianceGPGPU(im1G, meanIm1G, im1G, meanIm1G, r);
+	Image varIm1GB = covarianceGPGPU(im1G, meanIm1G, im1B, meanIm1B, r);
+	Image varIm1BB = covarianceGPGPU(im1B, meanIm1B, im1B, meanIm1B, r);
 
 	return disparity;
 }
