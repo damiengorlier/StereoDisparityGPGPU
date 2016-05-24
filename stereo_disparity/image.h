@@ -56,7 +56,7 @@ public:
 
 	Image plusGPGPU(const Image& I) const;
 	Image minusGPGPU(const Image& I) const;
-	Image multipliedGPGPU(const Image& I) const;
+	Image multiplyGPGPU(const Image& I) const;
 
     // Filters (implemented in filters.cpp)
     Image gradX() const;

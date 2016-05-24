@@ -77,12 +77,12 @@ void test() {
 
 	// GRADIENT
 
-	Image gradient1 = r.gradXGPGPU();
-	Image gradient2 = r.gradX();
-	const float* out_grad1 = &(const_cast<Image&>(gradient1))(0, 0);
-	const float* out_grad2 = &(const_cast<Image&>(gradient2))(0, 0);
-	io_png_write_f32("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\gradXGPGPU.png", out_grad1, gradient1.width(), gradient1.height(), 1);
-	io_png_write_f32("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\gradX.png", out_grad2, gradient2.width(), gradient2.height(), 1);
+	//Image gradient1 = r.gradXGPGPU();
+	//Image gradient2 = r.gradX();
+	//const float* out_grad1 = &(const_cast<Image&>(gradient1))(0, 0);
+	//const float* out_grad2 = &(const_cast<Image&>(gradient2))(0, 0);
+	//io_png_write_f32("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\gradXGPGPU.png", out_grad1, gradient1.width(), gradient1.height(), 1);
+	//io_png_write_f32("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\gradX.png", out_grad2, gradient2.width(), gradient2.height(), 1);
 
 	// TRANSPOSE
 
@@ -147,6 +147,55 @@ void test() {
 	//const float* out_box2 = &(const_cast<Image&>(box2))(0, 0);
 	//io_png_write_f32("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\box.png", out_box1, box1.width(), box1.height(), 1);
 	//io_png_write_f32("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\boxGPGPU.png", out_box2, box2.width(), box2.height(), 1);
+
+	// OPERATORS
+
+	//Image plus = r.plusGPGPU(r);
+	//Image minus = r.minusGPGPU(r);
+	//Image mul = r.multiplyGPGPU(r);
+	//const float* out_plus = &(const_cast<Image&>(plus))(0, 0);
+	//const float* out_minus = &(const_cast<Image&>(minus))(0, 0);
+	//const float* out_mul = &(const_cast<Image&>(mul))(0, 0);
+	//std::ofstream out_file_plus("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\plus.txt");
+	//if (out_file_plus.is_open())
+	//{
+	//	for (int i = 0; i < plus.width() * plus.height(); i++){
+	//		if (i % plus.width() == 0 && i != 0) {
+	//			out_file_plus << std::endl << out_plus[i] << " ";
+	//		}
+	//		else {
+	//			out_file_plus << out_plus[i] << " ";
+	//		}
+	//	}
+	//	out_file_plus.close();
+	//}
+	//std::ofstream out_file_minus("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\minus.txt");
+	//if (out_file_minus.is_open())
+	//{
+	//	for (int i = 0; i < minus.width() * minus.height(); i++){
+	//		if (i % minus.width() == 0 && i != 0) {
+	//			out_file_minus << std::endl << out_minus[i] << " ";
+	//		}
+	//		else {
+	//			out_file_minus << out_minus[i] << " ";
+	//		}
+	//	}
+	//	out_file_minus.close();
+	//}
+	//std::ofstream out_file_mul("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\mul.txt");
+	//if (out_file_mul.is_open())
+	//{
+	//	for (int i = 0; i < mul.width() * mul.height(); i++){
+	//		if (i % mul.width() == 0 && i != 0) {
+	//			out_file_mul << std::endl << out_mul[i] << " ";
+	//		}
+	//		else {
+	//			out_file_mul << out_mul[i] << " ";
+	//		}
+	//	}
+	//	out_file_mul.close();
+	//}
+
 }
 
 int main(int argc, char *argv[])

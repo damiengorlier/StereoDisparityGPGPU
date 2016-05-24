@@ -8,7 +8,16 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
-__global__ void addKernel(float *dev_out, float *dev_in1, float *dev_in2, const int width, const int height) {
+// TODO : - chercher cudaOccupancyMaxActiveBlocksPerMultiprocessor
+//        - Dans le rapport, expliquer pourquoi on doit avoir des images carrées (voir scanKernel)
+//        - rgb_to_gray en GPGPU ?
+
+__global__ void operatorKernel(float *dev_out, float *dev_in1, float *dev_in2, const int width, const int height, const int op) {
+	//
+	// op : 0 - PLUS
+	//      1 - MINUS
+	//      2 - MULTIPLY
+	//
 
 	int i = threadIdx.x + blockIdx.x * blockDim.x;
 	int j = threadIdx.y + blockIdx.y * blockDim.y;
@@ -17,7 +26,15 @@ __global__ void addKernel(float *dev_out, float *dev_in1, float *dev_in2, const 
 
 		const int globalIdx = i + j * width;
 
-		dev_out[globalIdx] = dev_in1[globalIdx] + dev_in2[globalIdx];
+		if (op == 0) {
+			dev_out[globalIdx] = dev_in1[globalIdx] + dev_in2[globalIdx];
+		}
+		else if (op == 1) {
+			dev_out[globalIdx] = dev_in1[globalIdx] - dev_in2[globalIdx];
+		}
+		else if (op == 2) {
+			dev_out[globalIdx] = dev_in1[globalIdx] * dev_in2[globalIdx];
+		}
 	}
 }
 
@@ -261,12 +278,36 @@ __global__ void boxFilterKernel(float *dev_out, const float *dev_in, const int r
 	}
 }
 
+void operatorWithCuda(float *host_out, const float *host_in1, const float *host_in2, const int width, const int height, const int blockDim, const int op) {
+	dim3 imSize(width, height);
+	dim3 block(blockDim, blockDim);
+	dim3 grid(ceil(width / blockDim), ceil(height / blockDim));
+
+	float *dev_in1 = 0;
+	float *dev_in2 = 0;
+	float *dev_out = 0;
+	int size = imSize.x * imSize.y * sizeof(float);
+
+	CudaSafeCall(cudaSetDevice(0));
+	CudaSafeCall(cudaMalloc((void**)&dev_out, size));
+	CudaSafeCall(cudaMalloc((void**)&dev_in1, size));
+	CudaSafeCall(cudaMalloc((void**)&dev_in2, size));
+	CudaSafeCall(cudaMemcpy(dev_in1, host_in1, size, cudaMemcpyHostToDevice));
+	CudaSafeCall(cudaMemcpy(dev_in2, host_in2, size, cudaMemcpyHostToDevice));
+
+	operatorKernel << <grid, block >> >(dev_out, dev_in1, dev_in2, imSize.x, imSize.y, op);
+
+	CudaCheckError();
+	CudaSafeCall(cudaDeviceSynchronize());
+	CudaSafeCall(cudaMemcpy(host_out, dev_out, size, cudaMemcpyDeviceToHost));
+	CudaSafeCall(cudaDeviceReset());
+}
+
 void gradXWithCuda(float *host_out, const float *host_in, const int width, const int height, const int blockDim) {
 	dim3 imSize(width, height);
 	dim3 block(blockDim + 2, blockDim);
 	dim3 grid(ceil(width / blockDim), ceil(height / blockDim));
 
-	// TODO : chercher cudaOccupancyMaxActiveBlocksPerMultiprocessor
 	float *dev_in = 0;
 	float *dev_out = 0;
 	int size = imSize.x * imSize.y * sizeof(float);
@@ -310,7 +351,7 @@ void scanWithCuda(float *host_out, const float *host_in, const int width, const 
 
 	if (addOri) {
 		CudaSafeCall(cudaMalloc((void**)&dev_tmp, size));
-		addKernel << <grid, block >> >(dev_tmp, dev_in, dev_out, imSize.x, imSize.y);
+		operatorKernel << <grid, block >> >(dev_tmp, dev_in, dev_out, imSize.x, imSize.y, 0);
 		CudaCheckError();
 		CudaSafeCall(cudaDeviceSynchronize());
 		CudaSafeCall(cudaMemcpy(host_out, dev_tmp, size, cudaMemcpyDeviceToHost));

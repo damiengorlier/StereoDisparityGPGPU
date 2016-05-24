@@ -7,7 +7,7 @@
 void costVolumeWithCuda(int *c, const int *a, const int *b, unsigned int size);
 
 static Image covarianceGPGPU(Image im1, Image mean1, Image im2, Image mean2, int r) {
-	return (im1*im2).boxFilterGPGPU(r) - mean1*mean2;
+	return ((im1.multiplyGPGPU(im2)).boxFilterGPGPU(r)).minusGPGPU(mean1.multiplyGPGPU(mean2));
 }
 
 Image filter_cost_volume_GPGPU(Image im1Color, Image im2Color, int dispMin, int dispMax, const ParamGuidedFilter& param) {
@@ -40,6 +40,9 @@ Image filter_cost_volume_GPGPU(Image im1Color, Image im2Color, int dispMin, int 
 	Image varIm1GG = covarianceGPGPU(im1G, meanIm1G, im1G, meanIm1G, r);
 	Image varIm1GB = covarianceGPGPU(im1G, meanIm1G, im1B, meanIm1B, r);
 	Image varIm1BB = covarianceGPGPU(im1B, meanIm1B, im1B, meanIm1B, r);
+
+	Image aR(width, height), aG(width, height), aB(width, height);
+	Image dCost(width, height);
 
 	return disparity;
 }
