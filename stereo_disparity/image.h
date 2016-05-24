@@ -57,6 +57,10 @@ public:
     // Filters (implemented in filters.cpp)
     Image gradX() const;
 	Image gradXGPGPU() const;
+	Image integral() const; // Test
+	Image integralGPGPU() const;
+	Image scanGPGPU() const;  // Test
+	Image transposeGPGPU() const; // Test
     void fillMinX(float vMin);
     void fillMaxX(float vMin);
     Image boxFilter(int radius) const;

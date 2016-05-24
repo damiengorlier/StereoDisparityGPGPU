@@ -69,6 +69,31 @@ Image Image::gradX() const {
     return D;
 }
 
+/// For GPGPU test
+Image Image::integral() const {
+	float* S = new float[w*h]; // Use double to mitigate precision loss
+	for (int i = w*h - 1; i >= 0; i--)
+		S[i] = static_cast<double>(tab[i]);
+
+	//cumulative sum table S, eq. (24)
+	for (int y = 0; y<h; y++) { //horizontal
+		float *in = S + y*w;
+		float *out = in + 1;
+		for (int x = 1; x<w; x++)
+			*out++ += *in++;
+	}
+	for (int y = 1; y<h; y++) { //vertical
+		float *in = S + (y - 1)*w;
+		float *out = in + w;
+		for (int x = 0; x<w; x++)
+			*out++ += *in++;
+	}
+
+	Image B(w, h);
+	B.tab = S;
+	return B;
+}
+
 /// Averaging filter with box of \a radius.
 ///
 /// Use the integral image for fast computation. The integral image is of type

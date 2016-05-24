@@ -38,6 +38,11 @@ Image filter_cost_volume_GPGPU(Image im1Color, Image im2Color, int dispMin, int 
 	Image gradient1 = im1Gray.gradXGPGPU();
 	Image gradient2 = im2Gray.gradXGPGPU();
 
+	// Compute the mean and variance of each patch, eq. (14)
+	Image meanIm1R = im1R.boxFilterGPGPU(r);
+	Image meanIm1G = im1G.boxFilterGPGPU(r);
+	Image meanIm1B = im1B.boxFilterGPGPU(r);
+
 	return disparity;
 }
 
