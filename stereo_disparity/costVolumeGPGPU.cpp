@@ -85,7 +85,8 @@ static Image disparity_selection_GPGPU(std::vector<Image> const &costVolume,
 	return disparity;
 }
 
-Image compute_cost_volume_CPU_GPGPU(Image im1Color, Image im2Color, int dispMin, int dispMax, const ParamGuidedFilter &param) {
+//Image compute_cost_volume_CPU_GPGPU(Image im1Color, Image im2Color, int dispMin, int dispMax, const ParamGuidedFilter &param) {
+std::vector<Image> cost_volume_CPU_GPGPU(Image im1Color, Image im2Color, int dispMin, int dispMax, const ParamGuidedFilter &param) {
 	Image im1R = im1Color.r(), im1G = im1Color.g(), im1B = im1Color.b();
 	Image im2R = im2Color.r(), im2G = im2Color.g(), im2B = im2Color.b();
 	std::vector<Image> image1RGBvec{ im1R, im1G, im1B };
@@ -93,7 +94,7 @@ Image compute_cost_volume_CPU_GPGPU(Image im1Color, Image im2Color, int dispMin,
 	const int width = im1R.width(), height = im1R.height();
 	const int r = param.kernel_radius;
 	const int dispSize = dispMax - dispMin + 1;
-	std::cout << "Cost-volume: " << (dispMax - dispMin + 1) << " disparities. ";
+	std::cout << "Cost-volume: " << (dispMax - dispMin + 1) << " disparities." << std::endl;
 
 	Image im1Gray(width, height);
 	Image im2Gray(width, height);
@@ -119,9 +120,11 @@ Image compute_cost_volume_CPU_GPGPU(Image im1Color, Image im2Color, int dispMin,
 	std::vector<Image> costVolume;
 	compute_costVolume_GPGPU(image1RGBvec, image2RGBvec, gradient1, gradient2, dispMin, dispMax, param, costVolume);
 
-	Image disparity = disparity_selection_GPGPU(costVolume, width, height, dispMin, dispMax);
+	return costVolume;
 
-	return disparity;
+	//Image disparity = disparity_selection_GPGPU(costVolume, width, height, dispMin, dispMax);
+
+	//return disparity;
 }
 
 Image filter_cost_volume_CPU_GPGPU(Image im1Color, Image im2Color, int dispMin, int dispMax, const ParamGuidedFilter &param) {

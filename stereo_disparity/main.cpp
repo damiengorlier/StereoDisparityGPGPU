@@ -7,6 +7,7 @@
 #include "io_png.h"
 
 #include <fstream>
+#include <string>
 
 static const char* OUTFILE1 = "disparity.png";
 static const char* OUTFILE2 = "disparity_occlusion.png";
@@ -56,8 +57,31 @@ static void usage(const char* name) {
 		<< std::endl;
 }
 
+// For the tests
+void saveImage(Image image, const char *outfile, int nChannel) {
+	const float* tab = &(const_cast<Image&>(image))(0, 0);
+	io_png_write_f32(outfile, tab, image.width(), image.height(), nChannel);
+}
+
+// For the tests
+void saveAsTxt(Image image, const char *outfile) {
+	const float* tab = &(const_cast<Image&>(image))(0, 0);
+	std::ofstream file(outfile);
+	if (file.is_open())
+	{
+		for (int i = 0; i < image.width() * image.height(); i++){
+			if (i % image.width() == 0 && i != 0) {
+				file << std::endl << tab[i] << " ";
+			}
+			else {
+				file << tab[i] << " ";
+			}
+		}
+		file.close();
+	}
+}
+
 void test() {
-	freopen("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\stdout.txt", "w", stdout);
 	size_t width, height, width2, height2;
 	float* pix1 = io_png_read_f32_rgb("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\data\\tsukuba0.png", &width, &height);
 	float* pix2 = io_png_read_f32_rgb("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\data\\tsukuba1.png", &width2, &height2);
@@ -76,149 +100,92 @@ void test() {
 
 	Image r = im1.r();
 
+	std::string dir = "C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\";
+
+	freopen((dir + "stdout.txt").c_str(), "w", stdout);
+
 	// GRADIENT
 
-	//Image gradient1 = r.gradXGPGPU();
-	//Image gradient2 = r.gradX();
-	//const float* out_grad1 = &(const_cast<Image&>(gradient1))(0, 0);
-	//const float* out_grad2 = &(const_cast<Image&>(gradient2))(0, 0);
-	//io_png_write_f32("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\gradXGPGPU.png", out_grad1, gradient1.width(), gradient1.height(), 1);
-	//io_png_write_f32("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\gradX.png", out_grad2, gradient2.width(), gradient2.height(), 1);
+	//std::cout << "#------------------#" << std::endl;
+	//std::cout << "#     GRADIENT     #" << std::endl;
+	//std::cout << "#------------------#" << std::endl;
+	//saveImage(r.gradX(), (dir + "gradX.png").c_str(), 1);
+	//saveImage(r.gradXGPGPU(), (dir + "gradXGPGPU.png").c_str(), 1);
 
 	// TRANSPOSE
 
-	//Image r_t = r.transposeGPGPU();
-	//const float* out_t1 = &(const_cast<Image&>(r))(0, 0);
-	//const float* out_t2 = &(const_cast<Image&>(r_t))(0, 0);
-	//io_png_write_f32("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\t_normal.png", out_t1, r.width(), r.height(), 1);
-	//io_png_write_f32("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\t_transpose.png", out_t2, r_t.width(), r_t.height(), 1);
+	//std::cout << "#-------------------#" << std::endl;
+	//std::cout << "#     TRANSPOSE     #" << std::endl;
+	//std::cout << "#-------------------#" << std::endl;
+	//saveImage(r, (dir + "t_normal.png").c_str(), 1);
+	//saveImage(r.transposeGPGPU(), (dir + "t_transpose.png").c_str(), 1);
 
 	// INTEGRAL
 
-	//Image scan1 = r.integral();
-	//Image scan2 = r.integralGPGPU(true);
-	//const float* out_scan0 = &(const_cast<Image&>(r))(0, 0);
-	//const float* out_scan1 = &(const_cast<Image&>(scan1))(0, 0);
-	//const float* out_scan2 = &(const_cast<Image&>(scan2))(0, 0);
-	//std::ofstream out_file0("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\normal.txt");
-	//if (out_file0.is_open())
-	//{
-	//	for (int i = 0; i < r.width() * r.height(); i++){
-	//		if (i % r.width() == 0 && i != 0) {
-	//			out_file0 << std::endl << out_scan0[i] << " ";
-	//		}
-	//		else {
-	//			out_file0 << out_scan0[i] << " ";
-	//		}
-	//	}
-	//	out_file0.close();
-	//}
-	//std::ofstream out_file1("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\integral.txt");
-	//if (out_file1.is_open())
-	//{
-	//	for (int i = 0; i < scan1.width() * scan1.height(); i++){
-	//		if (i % scan1.width() == 0 && i != 0) {
-	//			out_file1 << std::endl << out_scan1[i] << " ";
-	//		}
-	//		else {
-	//			out_file1 << out_scan1[i] << " ";
-	//		}
-	//	}
-	//	out_file1.close();
-	//}
-	//std::ofstream out_file2("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\integralGPGPU.txt");
-	//if (out_file2.is_open())
-	//{
-	//	for (int i = 0; i < scan2.width() * scan2.height(); i++){
-	//		if (i % scan2.width() == 0 && i != 0) {
-	//			out_file2 << std::endl << out_scan2[i] << " ";
-	//		}
-	//		else {
-	//			out_file2 << out_scan2[i] << " ";
-	//		}
-	//	}
-	//	out_file2.close();
-	//}
+	//std::cout << "#------------------#" << std::endl;
+	//std::cout << "#     INTEGRAL     #" << std::endl;
+	//std::cout << "#------------------#" << std::endl;
+	//saveAsTxt(r, (dir + "normal.txt").c_str());
+	//saveAsTxt(r.integral(), (dir + "integral.txt").c_str());
+	//saveAsTxt(r.integralGPGPU(true), (dir + "integralGPGPU.txt").c_str());
 
 	// BOXFILTER
 
-	//Image box1 = r.boxFilter(4);
-	//Image box2 = r.boxFilterGPGPU(4);
-	//const float* out_box1 = &(const_cast<Image&>(box1))(0, 0);
-	//const float* out_box2 = &(const_cast<Image&>(box2))(0, 0);
-	//io_png_write_f32("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\box.png", out_box1, box1.width(), box1.height(), 1);
-	//io_png_write_f32("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\boxGPGPU.png", out_box2, box2.width(), box2.height(), 1);
+	//std::cout << "#-------------------#" << std::endl;
+	//std::cout << "#     BOXFILTER     #" << std::endl;
+	//std::cout << "#-------------------#" << std::endl;
+	//saveImage(r.boxFilter(4), (dir + "box.png").c_str(), 1);
+	//saveImage(r.boxFilterGPGPU(4), (dir + "boxGPGPU.png").c_str(), 1);
 
 	// OPERATORS
 
-	//Image plusCPU = r + r;
-	//Image minusCPU = r - r;
-	//Image mulCPU = r * r;
-	//Image plus = r.plusGPGPU(r);
-	//Image minus = r.minusGPGPU(r);
-	//Image mul = r.multiplyGPGPU(r);
-	//const float* out_plus = &(const_cast<Image&>(plus))(0, 0);
-	//const float* out_minus = &(const_cast<Image&>(minus))(0, 0);
-	//const float* out_mul = &(const_cast<Image&>(mul))(0, 0);
-	//std::ofstream out_file_plus("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\plus.txt");
-	//if (out_file_plus.is_open())
-	//{
-	//	for (int i = 0; i < plus.width() * plus.height(); i++){
-	//		if (i % plus.width() == 0 && i != 0) {
-	//			out_file_plus << std::endl << out_plus[i] << " ";
-	//		}
-	//		else {
-	//			out_file_plus << out_plus[i] << " ";
-	//		}
-	//	}
-	//	out_file_plus.close();
-	//}
-	//std::ofstream out_file_minus("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\minus.txt");
-	//if (out_file_minus.is_open())
-	//{
-	//	for (int i = 0; i < minus.width() * minus.height(); i++){
-	//		if (i % minus.width() == 0 && i != 0) {
-	//			out_file_minus << std::endl << out_minus[i] << " ";
-	//		}
-	//		else {
-	//			out_file_minus << out_minus[i] << " ";
-	//		}
-	//	}
-	//	out_file_minus.close();
-	//}
-	//std::ofstream out_file_mul("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\mul.txt");
-	//if (out_file_mul.is_open())
-	//{
-	//	for (int i = 0; i < mul.width() * mul.height(); i++){
-	//		if (i % mul.width() == 0 && i != 0) {
-	//			out_file_mul << std::endl << out_mul[i] << " ";
-	//		}
-	//		else {
-	//			out_file_mul << out_mul[i] << " ";
-	//		}
-	//	}
-	//	out_file_mul.close();
-	//}
+	//std::cout << "#-------------------#" << std::endl;
+	//std::cout << "#     OPERATORS     #" << std::endl;
+	//std::cout << "#-------------------#" << std::endl;
+	//saveAsTxt(r + r, (dir + "plus.txt").c_str());
+	//saveAsTxt(r - r, (dir + "minus.txt").c_str());
+	//saveAsTxt(r * r, (dir + "mul.txt").c_str());
+	//saveAsTxt(r.plusGPGPU(r), (dir + "plusGPGPU.txt").c_str());
+	//saveAsTxt(r.minusGPGPU(r), (dir + "minusGPGPU.txt").c_str());
+	//saveAsTxt(r.multiplyGPGPU(r), (dir + "mulGPGPU.txt").c_str());
 
-	// DISPARITY COST VOLUME
+	// COST VOLUME
 
+	std::cout << "#---------------------#" << std::endl;
+	std::cout << "#     COST VOLUME     #" << std::endl;
+	std::cout << "#---------------------#" << std::endl;
 	int dMin = 0;
 	int dMax = 1;
 	int grayMin = 255, grayMax = 0;
 	ParamGuidedFilter paramGF;
 	paramGF.kernel_radius = 4;
-	Image disp = compute_cost_volume(im1, im2, dMin, dMax, paramGF);
-	char *outfile = "C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\disparity.png";
-	if (!save_disparity(outfile, disp, dMin, dMax, grayMin, grayMax)) {
-		std::cerr << "Error writing file " << outfile << std::endl;
-		return;
+
+	std::vector<Image> costV = cost_volume(im1, im2, dMin, dMax, paramGF);
+	std::vector<Image> costVGPGPU = cost_volume_CPU_GPGPU(im1, im2, dMin, dMax, paramGF);
+
+	for (std::vector<int>::size_type i = 0; i != costV.size(); i++) {
+		saveAsTxt(costV[i], (dir + "costV_CPU_" + std::to_string(i) + ".txt").c_str());
+		saveAsTxt(costVGPGPU[i], (dir + "costV_GPU_" + std::to_string(i) + ".txt").c_str());
+		saveAsTxt((costV[i] - costVGPGPU[i]), (dir + "costV_diff_" + std::to_string(i) + ".txt").c_str());
 	}
-	Image dispGPGPU = compute_cost_volume_CPU_GPGPU(im1, im2, dMin, dMax, paramGF);
-	char *outfileGPGPU = "C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\disparityGPGPU.png";
-	if (!save_disparity(outfileGPGPU, dispGPGPU, dMin, dMax, grayMin, grayMax)) {
-		std::cerr << "Error writing file " << outfileGPGPU << std::endl;
-		return;
-	}
+
+	// DISPARITY
+
+	//std::cout << "#-------------------#" << std::endl;
+	//std::cout << "#     DISPARITY     #" << std::endl;
+	//std::cout << "#-------------------#" << std::endl;
+	//Image disp = cost_volume(im1, im2, dMin, dMax, paramGF);
+	//char *outfile = "C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\disparity.png";
+	//if (!save_disparity(outfile, disp, dMin, dMax, grayMin, grayMax)) {
+	//	std::cerr << "Error writing file " << outfile << std::endl;
+	//	return;
+	//}
+	//Image dispGPGPU = cost_volume_CPU_GPGPU(im1, im2, dMin, dMax, paramGF);
+	//char *outfileGPGPU = "C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\disparityGPGPU.png";
+	//if (!save_disparity(outfileGPGPU, dispGPGPU, dMin, dMax, grayMin, grayMax)) {
+	//	std::cerr << "Error writing file " << outfileGPGPU << std::endl;
+	//	return;
+	//}
 }
 
 int main(int argc, char *argv[])

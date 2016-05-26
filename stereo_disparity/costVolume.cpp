@@ -106,7 +106,8 @@ static void compute_cost(Image im1R, Image im1G, Image im1B,
         }
 }
 
-Image compute_cost_volume(Image im1Color, Image im2Color,
+//Image compute_cost_volume(Image im1Color, Image im2Color,
+std::vector<Image> cost_volume(Image im1Color, Image im2Color,
 	int dispMin, int dispMax,
 	const ParamGuidedFilter& param) {
 
@@ -114,7 +115,7 @@ Image compute_cost_volume(Image im1Color, Image im2Color,
 	Image im2R = im2Color.r(), im2G = im2Color.g(), im2B = im2Color.b();
 	const int width = im1R.width(), height = im1R.height();
 	const int r = param.kernel_radius;
-	std::cout << "Cost-volume: " << (dispMax - dispMin + 1) << " disparities. ";
+	std::cout << "Cost-volume: " << (dispMax - dispMin + 1) << " disparities." << std::endl;
 
 	Image disparity(width, height);
 	std::fill_n(&disparity(0, 0), width*height, static_cast<float>(dispMin - 1));
@@ -141,22 +142,29 @@ Image compute_cost_volume(Image im1Color, Image im2Color,
 	Image varIm1BB = covariance(im1B, meanIm1B, im1B, meanIm1B, r);
 
 	Image aR(width, height), aG(width, height), aB(width, height);
-	Image dCost(width, height);
+	//Image dCost(width, height);
+	//
+	std::vector<Image> costVolume;
+	costVolume.reserve(dispMax - dispMin + 1);
+	//
 	for (int d = dispMin; d <= dispMax; d++) {
 		std::cout << '*' << std::flush;
+		Image dCost(width, height);
 		compute_cost(im1R, im1G, im1B, im2R, im2G, im2B, gradient1, gradient2,
 			d, param, dCost);
+		costVolume.push_back(dCost);
 
 		// Winner takes all label selection
-		for (int y = 0; y<height; y++)
-			for (int x = 0; x<width; x++)
-				if (cost(x, y) >= dCost(x, y)) {
-					cost(x, y) = dCost(x, y);
-					disparity(x, y) = static_cast<float>(d);
-				}
+		//for (int y = 0; y<height; y++)
+		//	for (int x = 0; x<width; x++)
+		//		if (cost(x, y) >= dCost(x, y)) {
+		//			cost(x, y) = dCost(x, y);
+		//			disparity(x, y) = static_cast<float>(d);
+		//		}
 	}
-	std::cout << std::endl;
-	return disparity;
+	return costVolume;
+	//std::cout << std::endl;
+	//return disparity;
 }
 
 /// Cost volume filtering
@@ -167,7 +175,7 @@ Image filter_cost_volume(Image im1Color, Image im2Color,
     Image im2R=im2Color.r(), im2G=im2Color.g(), im2B=im2Color.b();
     const int width=im1R.width(), height=im1R.height();
     const int r = param.kernel_radius;
-    std::cout << "Cost-volume: " << (dispMax-dispMin+1) << " disparities. ";
+    std::cout << "Cost-volume: " << (dispMax-dispMin+1) << " disparities." << std::endl;
 
     Image disparity(width,height);
     std::fill_n(&disparity(0,0), width*height, static_cast<float>(dispMin-1));
