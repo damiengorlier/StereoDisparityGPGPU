@@ -57,9 +57,10 @@ static void usage(const char* name) {
 }
 
 void test() {
+	freopen("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\stdout.txt", "w", stdout);
 	size_t width, height, width2, height2;
-	float* pix1 = io_png_read_f32_rgb("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\data\\tsukuba0_square.png", &width, &height);
-	float* pix2 = io_png_read_f32_rgb("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\data\\tsukuba1_square.png", &width2, &height2);
+	float* pix1 = io_png_read_f32_rgb("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\data\\tsukuba0.png", &width, &height);
+	float* pix2 = io_png_read_f32_rgb("C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\data\\tsukuba1.png", &width2, &height2);
 	if (!pix1 || !pix2) {
 		std::cerr << "Cannot read image file " << std::endl;
 		return;
@@ -150,6 +151,9 @@ void test() {
 
 	// OPERATORS
 
+	//Image plusCPU = r + r;
+	//Image minusCPU = r - r;
+	//Image mulCPU = r * r;
 	//Image plus = r.plusGPGPU(r);
 	//Image minus = r.minusGPGPU(r);
 	//Image mul = r.multiplyGPGPU(r);
@@ -196,6 +200,25 @@ void test() {
 	//	out_file_mul.close();
 	//}
 
+	// DISPARITY COST VOLUME
+
+	int dMin = 0;
+	int dMax = 1;
+	int grayMin = 255, grayMax = 0;
+	ParamGuidedFilter paramGF;
+	paramGF.kernel_radius = 4;
+	Image disp = compute_cost_volume(im1, im2, dMin, dMax, paramGF);
+	char *outfile = "C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\disparity.png";
+	if (!save_disparity(outfile, disp, dMin, dMax, grayMin, grayMax)) {
+		std::cerr << "Error writing file " << outfile << std::endl;
+		return;
+	}
+	Image dispGPGPU = compute_cost_volume_CPU_GPGPU(im1, im2, dMin, dMax, paramGF);
+	char *outfileGPGPU = "C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\disparityGPGPU.png";
+	if (!save_disparity(outfileGPGPU, dispGPGPU, dMin, dMax, grayMin, grayMax)) {
+		std::cerr << "Error writing file " << outfileGPGPU << std::endl;
+		return;
+	}
 }
 
 int main(int argc, char *argv[])

@@ -159,6 +159,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     </CudaCompile>
     <CudaCompile Include="filtersGPGPU.cpp" />
     <CudaCompile Include="imageGPGPU.cpp" />
+    <CudaCompile Include="TimingGPU.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="costVolume.cpp" />
@@ -167,6 +168,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     <ClCompile Include="io_png.c" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="occlusion.cpp" />
+    <ClCompile Include="TimingCPU.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cmdLine.h" />
@@ -177,6 +179,8 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     <ClInclude Include="image.h" />
     <ClInclude Include="io_png.h" />
     <ClInclude Include="occlusion.h" />
+    <ClInclude Include="TimingCPU.h" />
+    <ClInclude Include="TimingGPU.cuh" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

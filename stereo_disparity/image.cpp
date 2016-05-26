@@ -17,8 +17,12 @@
 
 #include "image.h"
 #include "io_png.h"
+#include "TimingCPU.h"
 #include <algorithm>
 #include <cassert>
+#include <iostream>
+
+#define TIMING 1
 
 /// Constructor
 Image::Image(int width, int height)
@@ -65,12 +69,21 @@ void Image::kill() {
 
 /// Addition
 Image Image::operator+(const Image& I) const {
+	TimingCPU timer;
+	timer.StartCounter();
+
     assert(w==I.w && h==I.h);
     Image S(w,h);
     float* out=S.tab;
     const float *in1=tab, *in2=I.tab;
     for(int i=w*h-1; i>=0; i--)
         *out++ = *in1++ + *in2++;
+
+	double time = timer.GetCounter();
+	if (TIMING) {
+		std::cout << "CPU | operator+ : " << time << " ms" << std::endl;
+	}
+
     return S;
 }
 
@@ -86,23 +99,41 @@ Image& Image::operator+=(const Image& I) {
 
 /// Subtraction
 Image Image::operator-(const Image& I) const {
+	TimingCPU timer;
+	timer.StartCounter();
+
     assert(w==I.w && h==I.h);
     Image S(w,h);
     float* out=S.tab;
     const float *in1=tab, *in2=I.tab;
     for(int i=w*h-1; i>=0; i--)
         *out++ = *in1++ - *in2++;
+
+	double time = timer.GetCounter();
+	if (TIMING) {
+		std::cout << "CPU | operator- : " << time << " ms" << std::endl;
+	}
+
     return S;
 }
 
 /// Pixel-wise multiplication
 Image Image::operator*(const Image& I) const {
+	TimingCPU timer;
+	timer.StartCounter();
+
     assert(w==I.w && h==I.h);
     Image S(w,h);
     float* out=S.tab;
     const float *in1=tab, *in2=I.tab;
     for(int i=w*h-1; i>=0; i--)
         *out++ = *in1++ * *in2++;
+
+	double time = timer.GetCounter();
+	if (TIMING) {
+		std::cout << "CPU | operator* : " << time << " ms" << std::endl;
+	}
+
     return S;
 }
 

@@ -17,11 +17,15 @@
  */
 
 #include "image.h"
+#include "TimingCPU.h"
 #include <algorithm>
 #include <numeric>
 #include <vector>
 #include <cmath>
 #include <cassert>
+#include <iostream>
+
+#define TIMING 1
 
 /// Fill pixels below value \a vMin using values at two closest pixels on same
 /// line above \a vMin. The filling value is the result of \a cmp with the two
@@ -56,6 +60,9 @@ void Image::fillMaxX(float vMin) {
 
 /// Derivative along x-axis
 Image Image::gradX() const {
+	TimingCPU timer;
+	timer.StartCounter();
+
     assert(w>=2);
     Image D(w,h);
     float* out=D.tab;
@@ -66,11 +73,20 @@ Image Image::gradX() const {
             *out++ = .5f*(in[2]-in[0]); // Right - left
         *out++ = in[1]-in[0];           // Current - left
     }
+
+	double time = timer.GetCounter();
+	if (TIMING) {
+		std::cout << "CPU | gradX : " << time << " ms" << std::endl;
+	}
+
     return D;
 }
 
 /// For GPGPU test
 Image Image::integral() const {
+	TimingCPU timer;
+	timer.StartCounter();
+
 	float* S = new float[w*h]; // Use double to mitigate precision loss
 	for (int i = w*h - 1; i >= 0; i--)
 		S[i] = static_cast<double>(tab[i]);
@@ -91,6 +107,12 @@ Image Image::integral() const {
 
 	Image B(w, h);
 	B.tab = S;
+
+	double time = timer.GetCounter();
+	if (TIMING) {
+		std::cout << "CPU | integral : " << time << " ms" << std::endl;
+	}
+
 	return B;
 }
 
@@ -99,6 +121,9 @@ Image Image::integral() const {
 /// Use the integral image for fast computation. The integral image is of type
 /// double to mitigate risks of precision loss for large images.
 Image Image::boxFilter(int radius) const {
+	TimingCPU timer;
+	timer.StartCounter();
+
     double* S = new double[w*h]; // Use double to mitigate precision loss
     for(int i=w*h-1; i>=0; i--)
         S[i] = static_cast<double>(tab[i]);
@@ -135,6 +160,12 @@ Image Image::boxFilter(int radius) const {
             *out = static_cast<float>(val/((xmax-xmin)*(ymax-ymin))); //average
         }
     }
+
+	double time = timer.GetCounter();
+	if (TIMING) {
+		std::cout << "CPU | boxFilter : " << time << " ms" << std::endl;
+	}
+
     delete [] S;
     return B;
 }

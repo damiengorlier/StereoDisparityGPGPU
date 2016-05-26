@@ -38,11 +38,19 @@ struct ParamGuidedFilter {
       epsilon(0.0001f*255*255) {}
 };
 
+Image compute_cost_volume(Image im1Color, Image im2Color,
+	int dispMin, int dispMax,
+	const ParamGuidedFilter& param);
+
 Image filter_cost_volume(Image im1Color, Image im2Color,
                          int dispMin, int dispMax,
                          const ParamGuidedFilter& param);
 
-Image filter_cost_volume_GPGPU(Image im1Color, Image im2Color,
+Image compute_cost_volume_CPU_GPGPU(Image im1Color, Image im2Color,
+	int dispMin, int dispMax,
+	const ParamGuidedFilter& param);
+
+Image filter_cost_volume_CPU_GPGPU(Image im1Color, Image im2Color,
 	int dispMin, int dispMax,
 	const ParamGuidedFilter& param);
 

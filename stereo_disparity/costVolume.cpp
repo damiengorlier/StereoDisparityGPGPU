@@ -106,6 +106,59 @@ static void compute_cost(Image im1R, Image im1G, Image im1B,
         }
 }
 
+Image compute_cost_volume(Image im1Color, Image im2Color,
+	int dispMin, int dispMax,
+	const ParamGuidedFilter& param) {
+
+	Image im1R = im1Color.r(), im1G = im1Color.g(), im1B = im1Color.b();
+	Image im2R = im2Color.r(), im2G = im2Color.g(), im2B = im2Color.b();
+	const int width = im1R.width(), height = im1R.height();
+	const int r = param.kernel_radius;
+	std::cout << "Cost-volume: " << (dispMax - dispMin + 1) << " disparities. ";
+
+	Image disparity(width, height);
+	std::fill_n(&disparity(0, 0), width*height, static_cast<float>(dispMin - 1));
+	Image cost(width, height);
+	std::fill_n(&cost(0, 0), width*height, std::numeric_limits<float>::max());
+
+	Image im1Gray(width, height);
+	Image im2Gray(width, height);
+	rgb_to_gray(&im1R(0, 0), &im1G(0, 0), &im1B(0, 0), width, height, &im1Gray(0, 0));
+	rgb_to_gray(&im2R(0, 0), &im2G(0, 0), &im2B(0, 0), width, height, &im2Gray(0, 0));
+	Image gradient1 = im1Gray.gradX();
+	Image gradient2 = im2Gray.gradX();
+
+	// Compute the mean and variance of each patch, eq. (14)
+	Image meanIm1R = im1R.boxFilter(r);
+	Image meanIm1G = im1G.boxFilter(r);
+	Image meanIm1B = im1B.boxFilter(r);
+
+	Image varIm1RR = covariance(im1R, meanIm1R, im1R, meanIm1R, r);
+	Image varIm1RG = covariance(im1R, meanIm1R, im1G, meanIm1G, r);
+	Image varIm1RB = covariance(im1R, meanIm1R, im1B, meanIm1B, r);
+	Image varIm1GG = covariance(im1G, meanIm1G, im1G, meanIm1G, r);
+	Image varIm1GB = covariance(im1G, meanIm1G, im1B, meanIm1B, r);
+	Image varIm1BB = covariance(im1B, meanIm1B, im1B, meanIm1B, r);
+
+	Image aR(width, height), aG(width, height), aB(width, height);
+	Image dCost(width, height);
+	for (int d = dispMin; d <= dispMax; d++) {
+		std::cout << '*' << std::flush;
+		compute_cost(im1R, im1G, im1B, im2R, im2G, im2B, gradient1, gradient2,
+			d, param, dCost);
+
+		// Winner takes all label selection
+		for (int y = 0; y<height; y++)
+			for (int x = 0; x<width; x++)
+				if (cost(x, y) >= dCost(x, y)) {
+					cost(x, y) = dCost(x, y);
+					disparity(x, y) = static_cast<float>(d);
+				}
+	}
+	std::cout << std::endl;
+	return disparity;
+}
+
 /// Cost volume filtering
 Image filter_cost_volume(Image im1Color, Image im2Color,
                          int dispMin, int dispMax,

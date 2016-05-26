@@ -4,6 +4,7 @@
 #include <cassert>
 #include <math.h>
 
+// TODO : mettre ça en paramètre du programme
 #define BLOCK 16
 
 Image Image::gradXGPGPU() const {
@@ -25,7 +26,7 @@ Image Image::integralGPGPU(bool addOri) const {
 	scanWithCuda(tmp1, tab, w, h, addOri);
 	transposeWithCuda(tmp2, tmp1, w, h, BLOCK);
 	scanWithCuda(tmp1, tmp2, h, w, addOri);
-	transposeWithCuda(out, tmp1, w, h, BLOCK);
+	transposeWithCuda(out, tmp1, h, w, BLOCK);
 
 	return D;
 }
