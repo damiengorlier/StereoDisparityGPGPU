@@ -326,8 +326,8 @@ __global__ void costVolumeKernel(float *dev_cost_out,
 		float costGrad = gradTh;
 		if (d <= dispMax && i + d >= 0 && i + d < width) {
 			
-			float col1[3] = { dev_im1R[globalIdx], dev_im1G[globalIdx], dev_im1B[globalIdx] };
-			float col2[3] = { dev_im2R[globalIdx + d], dev_im2G[globalIdx + d], dev_im2B[globalIdx + d] };
+			float col1[] = { dev_im1R[globalIdx], dev_im1G[globalIdx], dev_im1B[globalIdx] };
+			float col2[] = { dev_im2R[globalIdx + d], dev_im2G[globalIdx + d], dev_im2B[globalIdx + d] };
 			float cost = 0;
 			for (int k = 0; k < 3; k++) {
 				float tmp = col1[k] - col2[k];
@@ -723,7 +723,7 @@ void disparitySelectionWithCuda(float *host_out, const float *host_cost_volume,
 	CudaSafeCall(cudaMalloc((void**)&dev_cost_volume, size * dispSize));
 	CudaSafeCall(cudaMemcpy(dev_cost_volume, host_cost_volume, size * dispSize, cudaMemcpyHostToDevice));
 
-	//printf("		disparitySelectionWithCuda : grid = (%d, %d) | block = (%d, %d)\n", grid.x, grid.y, block.x, block.y);
+	//printf("		disparitySelectionWithCuda : grid = (%d, %d) | block = (%d, %d, %d)\n", grid.x, grid.y, block.x, block.y, block.z);
 
 	TimingGPU timer;
 	timer.StartCounter();

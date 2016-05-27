@@ -45,12 +45,20 @@ std::vector<Image> cost_volume(Image im1Color, Image im2Color,
 	int dispMin, int dispMax,
 	const ParamGuidedFilter& param);
 
+Image disp_cost_volume(Image im1Color, Image im2Color,
+	int dispMin, int dispMax,
+	const ParamGuidedFilter& param);
+
 Image filter_cost_volume(Image im1Color, Image im2Color,
                          int dispMin, int dispMax,
                          const ParamGuidedFilter& param);
 
 //Image cost_volume_CPU_GPGPU(Image im1Color, Image im2Color,
 std::vector<Image> cost_volume_CPU_GPGPU(Image im1Color, Image im2Color,
+	int dispMin, int dispMax,
+	const ParamGuidedFilter& param);
+
+Image disp_cost_volume_CPU_GPGPU(Image im1Color, Image im2Color,
 	int dispMin, int dispMax,
 	const ParamGuidedFilter& param);
 

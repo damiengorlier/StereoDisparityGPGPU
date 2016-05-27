@@ -99,6 +99,11 @@ void test() {
 	// TESTS - Commenté == OK
 
 	Image r = im1.r();
+	int dMin = 0;
+	int dMax = 1;
+	int grayMin = 255, grayMax = 0;
+	ParamGuidedFilter paramGF;
+	paramGF.kernel_radius = 4;
 
 	std::string dir = "C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\";
 
@@ -151,41 +156,40 @@ void test() {
 
 	// COST VOLUME
 
-	std::cout << "#---------------------#" << std::endl;
-	std::cout << "#     COST VOLUME     #" << std::endl;
-	std::cout << "#---------------------#" << std::endl;
-	int dMin = 0;
-	int dMax = 1;
-	int grayMin = 255, grayMax = 0;
-	ParamGuidedFilter paramGF;
-	paramGF.kernel_radius = 4;
-
-	std::vector<Image> costV = cost_volume(im1, im2, dMin, dMax, paramGF);
-	std::vector<Image> costVGPGPU = cost_volume_CPU_GPGPU(im1, im2, dMin, dMax, paramGF);
-
-	for (std::vector<int>::size_type i = 0; i != costV.size(); i++) {
-		saveAsTxt(costV[i], (dir + "costV_CPU_" + std::to_string(i) + ".txt").c_str());
-		saveAsTxt(costVGPGPU[i], (dir + "costV_GPU_" + std::to_string(i) + ".txt").c_str());
-		saveAsTxt((costV[i] - costVGPGPU[i]), (dir + "costV_diff_" + std::to_string(i) + ".txt").c_str());
-	}
+	//std::cout << "#---------------------#" << std::endl;
+	//std::cout << "#     COST VOLUME     #" << std::endl;
+	//std::cout << "#---------------------#" << std::endl;
+	//std::vector<Image> costV = cost_volume(im1, im2, dMin, dMax, paramGF);
+	//std::vector<Image> costVGPGPU = cost_volume_CPU_GPGPU(im1, im2, dMin, dMax, paramGF);
+	//for (std::vector<int>::size_type i = 0; i != costV.size(); i++) {
+	//	saveAsTxt(costV[i], (dir + "costV_CPU_" + std::to_string(i) + ".txt").c_str());
+	//	saveAsTxt(costVGPGPU[i], (dir + "costV_GPU_" + std::to_string(i) + ".txt").c_str());
+	//	saveAsTxt((costV[i] - costVGPGPU[i]), (dir + "costV_diff_" + std::to_string(i) + ".txt").c_str());
+	//}
 
 	// DISPARITY
 
-	//std::cout << "#-------------------#" << std::endl;
-	//std::cout << "#     DISPARITY     #" << std::endl;
-	//std::cout << "#-------------------#" << std::endl;
-	//Image disp = cost_volume(im1, im2, dMin, dMax, paramGF);
-	//char *outfile = "C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\disparity.png";
-	//if (!save_disparity(outfile, disp, dMin, dMax, grayMin, grayMax)) {
-	//	std::cerr << "Error writing file " << outfile << std::endl;
-	//	return;
-	//}
-	//Image dispGPGPU = cost_volume_CPU_GPGPU(im1, im2, dMin, dMax, paramGF);
-	//char *outfileGPGPU = "C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\disparityGPGPU.png";
-	//if (!save_disparity(outfileGPGPU, dispGPGPU, dMin, dMax, grayMin, grayMax)) {
-	//	std::cerr << "Error writing file " << outfileGPGPU << std::endl;
-	//	return;
-	//}
+	std::cout << "#-------------------#" << std::endl;
+	std::cout << "#     DISPARITY     #" << std::endl;
+	std::cout << "#-------------------#" << std::endl;
+	Image disp = disp_cost_volume(im1, im2, dMin, dMax, paramGF);
+	Image dispGPGPU = disp_cost_volume_CPU_GPGPU(im1, im2, dMin, dMax, paramGF);
+	saveImage(disp, (dir + "disparity.png").c_str(), 1);
+	saveImage(dispGPGPU, (dir + "disparityGPGPU.png").c_str(), 1);
+	saveAsTxt(disp, (dir + "disparity.txt").c_str());
+	saveAsTxt(dispGPGPU, (dir + "disparityGPGPU.txt").c_str());
+
+	// GUIDED FILTER
+
+	//std::cout << "#-----------------------#" << std::endl;
+	//std::cout << "#     GUIDED FILTER     #" << std::endl;
+	//std::cout << "#-----------------------#" << std::endl;
+	//Image filter = filter_cost_volume(im1, im2, dMin, dMax, paramGF);
+	//Image filterGPGPU = filter_cost_volume_CPU_GPGPU(im1, im2, dMin, dMax, paramGF);
+	//saveImage(filter, (dir + "filter.png").c_str(), 1);
+	//saveImage(filterGPGPU, (dir + "filterGPGPU.png").c_str(), 1);
+	//saveAsTxt(filter, (dir + "filter.txt").c_str());
+	//saveAsTxt(filterGPGPU, (dir + "filterGPGPU.txt").c_str());
 }
 
 int main(int argc, char *argv[])
