@@ -100,14 +100,14 @@ void test() {
 
 	Image r = im1.r();
 	int dMin = 0;
-	int dMax = 1;
+	int dMax = 4;
 	int grayMin = 255, grayMax = 0;
 	ParamGuidedFilter paramGF;
 	paramGF.kernel_radius = 4;
 
 	std::string dir = "C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\";
 
-	freopen((dir + "stdout.txt").c_str(), "w", stdout);
+	freopen((dir + "_stdout.txt").c_str(), "w", stdout);
 
 	// GRADIENT
 
@@ -169,15 +169,16 @@ void test() {
 
 	// DISPARITY
 
-	std::cout << "#-------------------#" << std::endl;
-	std::cout << "#     DISPARITY     #" << std::endl;
-	std::cout << "#-------------------#" << std::endl;
-	Image disp = disp_cost_volume(im1, im2, dMin, dMax, paramGF);
-	Image dispGPGPU = disp_cost_volume_CPU_GPGPU(im1, im2, dMin, dMax, paramGF);
-	saveImage(disp, (dir + "disparity.png").c_str(), 1);
-	saveImage(dispGPGPU, (dir + "disparityGPGPU.png").c_str(), 1);
-	saveAsTxt(disp, (dir + "disparity.txt").c_str());
-	saveAsTxt(dispGPGPU, (dir + "disparityGPGPU.txt").c_str());
+	//std::cout << "#-------------------#" << std::endl;
+	//std::cout << "#     DISPARITY     #" << std::endl;
+	//std::cout << "#-------------------#" << std::endl;
+	//Image disp = disp_cost_volume(im1, im2, dMin, dMax, paramGF);
+	//Image dispGPGPU = disp_cost_volume_CPU_GPGPU(im1, im2, dMin, dMax, paramGF);
+	//save_disparity((dir + "disparity.png").c_str(), disp, dMin, dMax, grayMin, grayMax);
+	//save_disparity((dir + "disparityGPGPU.png").c_str(), dispGPGPU, dMin, dMax, grayMin, grayMax);
+	//saveAsTxt(disp, (dir + "disparity.txt").c_str());
+	//saveAsTxt(dispGPGPU, (dir + "disparityGPGPU.txt").c_str());
+	//saveAsTxt(disp - dispGPGPU, (dir + "disparity_diff.txt").c_str());
 
 	// GUIDED FILTER
 
@@ -186,10 +187,11 @@ void test() {
 	//std::cout << "#-----------------------#" << std::endl;
 	//Image filter = filter_cost_volume(im1, im2, dMin, dMax, paramGF);
 	//Image filterGPGPU = filter_cost_volume_CPU_GPGPU(im1, im2, dMin, dMax, paramGF);
-	//saveImage(filter, (dir + "filter.png").c_str(), 1);
-	//saveImage(filterGPGPU, (dir + "filterGPGPU.png").c_str(), 1);
-	//saveAsTxt(filter, (dir + "filter.txt").c_str());
-	//saveAsTxt(filterGPGPU, (dir + "filterGPGPU.txt").c_str());
+	//save_disparity((dir + "disp_filter.png").c_str(), filter, dMin, dMax, grayMin, grayMax);
+	//save_disparity((dir + "disp_filterGPGPU.png").c_str(), filterGPGPU, dMin, dMax, grayMin, grayMax);
+	//saveAsTxt(filter, (dir + "disp_filter.txt").c_str());
+	//saveAsTxt(filterGPGPU, (dir + "disp_filterGPGPU.txt").c_str());
+	//saveAsTxt(filter - filterGPGPU, (dir + "disp_filter_diff.txt").c_str());
 }
 
 int main(int argc, char *argv[])

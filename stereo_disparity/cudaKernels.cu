@@ -376,6 +376,7 @@ __global__ void aCoeffSpaceKernel(float *dev_out,
 __global__ void disparitySelectionKernel(float *dev_out, const float *dev_cost_volume,
 										 const int width, const int height, const int dispMin, const int dispMax) {
 
+	// In sharedMemory, the cost values are saved from 0 to blockDim.z - 1 and the disparity values are saved from blockDim.z to 2 * blockDim.z - 1
 	extern __shared__ float sharedMemory[];
 
 	int i = blockIdx.x;
@@ -384,14 +385,15 @@ __global__ void disparitySelectionKernel(float *dev_out, const float *dev_cost_v
 
 	if (i < width && j < height) {
 
-		const int tdx = threadIdx.x;
 		const int globalIdx = i + j * width + k * height * width;
 
 		if (k + dispMin <= dispMax) {
-			sharedMemory[tdx] = dev_cost_volume[globalIdx];
+			sharedMemory[k] = dev_cost_volume[globalIdx];
+			sharedMemory[k + blockDim.z] = k + dispMin;
 		}
 		else {
-			sharedMemory[tdx] = MAX_FLOAT;
+			sharedMemory[k] = MAX_FLOAT;
+			sharedMemory[k + blockDim.z] = 404;
 		}
 
 		__syncthreads();
@@ -400,18 +402,22 @@ __global__ void disparitySelectionKernel(float *dev_out, const float *dev_cost_v
 
 		for (int d = blockDim.z >> 1; d > 0; d >>= 1)
 		{
-			if (tdx < d)
+			if (k < d)
 			{
-				int ai = offset * (2 * tdx + 1) - 1;
-				int bi = offset * (2 * tdx + 2) - 1;
-				sharedMemory[bi] = (sharedMemory[bi] < sharedMemory[ai]) ? sharedMemory[bi] : sharedMemory[ai];
+				int ai = offset * (2 * k + 1) - 1;
+				int bi = offset * (2 * k + 2) - 1;
+				// <= pour avoir le même comportement que dans la version CPU
+				// si seulement <, on peut avoir des différences entre les disparity maps si les coûts sont =
+				bool isSmaller = sharedMemory[bi] <= sharedMemory[ai];
+				sharedMemory[bi] = isSmaller ? sharedMemory[bi] : sharedMemory[ai];
+				sharedMemory[bi + blockDim.z] = isSmaller ? sharedMemory[bi + blockDim.z] : sharedMemory[ai + blockDim.z];
 			}
 			offset *= 2;
 			__syncthreads();
 		}
 
-		if (tdx == 0) {
-			dev_out[i + j * width] = sharedMemory[blockDim.z - 1];
+		if (k == 0) {
+			dev_out[i + j * width] = sharedMemory[2 * blockDim.z - 1];
 		}
 	}
 }
@@ -728,7 +734,7 @@ void disparitySelectionWithCuda(float *host_out, const float *host_cost_volume,
 	TimingGPU timer;
 	timer.StartCounter();
 
-	disparitySelectionKernel << < grid, block, block.z * sizeof(float) >> >(dev_out, dev_cost_volume, width, height, dispMin, dispMax);
+	disparitySelectionKernel << < grid, block, 2 * block.z * sizeof(float) >> >(dev_out, dev_cost_volume, width, height, dispMin, dispMax);
 
 	float time = timer.GetCounter();
 	if (TIMING) {
