@@ -219,7 +219,7 @@ Image filter_cost_volume_CPU_GPGPU(Image im1Color, Image im2Color, int dispMin, 
 	return disparity;
 }
 
-Image filter_cost_volume_GPGPU(Image im1Color, Image im2Color, int dispMin, int dispMax, const ParamGuidedFilter &param) {
+Image filter_cost_volume_GPGPU(Image im1Color, Image im2Color, int dispMin, int dispMax, const ParamGuidedFilter &param, int blockDim) {
 	Image im1R = im1Color.r(), im1G = im1Color.g(), im1B = im1Color.b();
 	Image im2R = im2Color.r(), im2G = im2Color.g(), im2B = im2Color.b();
 
@@ -231,7 +231,7 @@ Image filter_cost_volume_GPGPU(Image im1Color, Image im2Color, int dispMin, int 
 	float *dispTab = &(const_cast<Image&>(disparity))(0, 0);
 	float *im1RTab = &(const_cast<Image&>(im1R))(0, 0); float *im1GTab = &(const_cast<Image&>(im1G))(0, 0); float *im1BTab = &(const_cast<Image&>(im1B))(0, 0);
 	float *im2RTab = &(const_cast<Image&>(im2R))(0, 0); float *im2GTab = &(const_cast<Image&>(im2G))(0, 0); float *im2BTab = &(const_cast<Image&>(im2B))(0, 0);
-	computeDisparityMapWithCuda(dispTab, im1RTab, im1GTab, im1BTab, im2RTab, im2GTab, im2BTab, width, height, BLOCK,
+	computeDisparityMapWithCuda(dispTab, im1RTab, im1GTab, im1BTab, im2RTab, im2GTab, im2BTab, width, height, blockDim,
 		dispMin, dispMax, param.color_threshold, param.gradient_threshold, param.alpha, param.kernel_radius, param.epsilon);
 
 	return disparity;

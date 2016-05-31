@@ -168,6 +168,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     <ClCompile Include="io_png.c" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="occlusion.cpp" />
+    <ClCompile Include="occlusionGPGPU.cpp" />
     <ClCompile Include="TimingCPU.cpp" />
   </ItemGroup>
   <ItemGroup>

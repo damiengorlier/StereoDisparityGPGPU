@@ -451,6 +451,34 @@ __global__ void disparitySelectionKernel(float *dev_out, const float *dev_cost_v
 	}
 }
 
+__global__ void detectOcclusionKernel(float *dev_out, const float *dev_dispLeft, const float *dev_dispRight,
+									  const int width, const int height, const float dOcclusion, const int tolDisp) {
+
+	int i = threadIdx.x + blockIdx.x * blockDim.x;
+	int j = threadIdx.y + blockIdx.y * blockDim.y;
+
+	if (i < width && j < height) {
+		int globalIdx = i + j * width;
+
+		int d = (int)dev_dispLeft[globalIdx];
+
+		bool occlusion = (i + d < 0 || i + d >= width);
+
+		if (!occlusion) {
+			int d2 = d + (int)dev_dispRight[globalIdx + d];
+			if (d2 < 0) d2 = -d2;
+			occlusion = d2 > tolDisp;
+		}
+
+		if (occlusion) {
+			dev_out[globalIdx] = dOcclusion;
+		}
+		else {
+			dev_out[globalIdx] = (float)d;
+		}
+	}
+}
+
 // ###################################
 // #          DEV FUNCTIONS          #
 // ###################################
@@ -688,9 +716,7 @@ void filteredCostWithCudaDev(float *dev_out, const float *dev_bCoeff,
 void disparitySelectionWithCudaDev(float *dev_out, const float *dev_costVolume,
 								   const int width, const int height, const int dispMin, const int dispMax) {
 
-	int dispSize = dispMax - dispMin + 1;
-
-	int blockSize = dispSize;
+	int blockSize = dispMax - dispMin + 1;
 
 	if (!ISPOW2(blockSize)) {
 		int x = blockSize;
@@ -702,6 +728,19 @@ void disparitySelectionWithCudaDev(float *dev_out, const float *dev_costVolume,
 	dim3 grid(width, height);
 
 	disparitySelectionKernel << < grid, block, 2 * block.z * sizeof(float) >> >(dev_out, dev_costVolume, width, height, dispMin, dispMax);
+	CudaCheckError();
+	if (SYNC) CudaSafeCall(cudaDeviceSynchronize());
+}
+
+void detectOcclusionWithCudaDev(float *dev_out,
+								const float *dev_dispLeft, const float *dev_dispRight,
+								const int width, const int height, const int blockDim,
+								const float dOcclusion, const int tolDisp) {
+
+	dim3 block(blockDim, blockDim);
+	dim3 grid(ceil(width / blockDim), ceil(height / blockDim));
+
+	detectOcclusionKernel << < grid, block >> >(dev_out, dev_dispLeft, dev_dispRight, width, height, dOcclusion, tolDisp);
 	CudaCheckError();
 	if (SYNC) CudaSafeCall(cudaDeviceSynchronize());
 }
@@ -1060,9 +1099,9 @@ void disparitySelectionWithCuda(float *host_out, const float *host_cost_volume,
 }
 
 void computeDisparityMapWithCuda(float *host_out,
-								 const float *host_im1R, const float *host_im1G, const float *host_im1B,	// Image 1 RGB
-								 const float *host_im2R, const float *host_im2G, const float *host_im2B,	// Image 2 RGB
-								 const int width, const int height, const int blockDim,						// Dimensions parameters
+								 const float *host_im1R, const float *host_im1G, const float *host_im1B,
+								 const float *host_im2R, const float *host_im2G, const float *host_im2B,
+								 const int width, const int height, const int blockDim,
 								 const int dispMin, const int dispMax,
 								 const float colorTh, const float gradTh, const float alpha,
 								 const int radius, const float epsilon) {
@@ -1173,6 +1212,37 @@ void computeDisparityMapWithCuda(float *host_out,
 	float time = timer.GetCounter();
 	if (TIMING) {
 		std::cout << "GPU | computeDisparityMapWithCuda : " << time << " ms" << std::endl;
+	}
+
+	CudaSafeCall(cudaDeviceReset());
+}
+
+void detectOcclusionWithCuda(float *host_out,
+							 const float *host_dispLeft, const float *host_dispRight,
+							 const int width, const int height, const int blockDim,
+							 const float dOcclusion, const int tolDisp) {
+
+	float *dev_out = 0;
+	float *dev_dispLeft = 0; float *dev_dispRight = 0;
+	int size = width * height * sizeof(float);
+
+	CudaSafeCall(cudaSetDevice(0));
+	TimingGPU timer;
+	timer.StartCounter();
+
+	CudaSafeCall(cudaMalloc((void**)&dev_out, size));
+	CudaSafeCall(cudaMalloc((void**)&dev_dispLeft, size)); CudaSafeCall(cudaMalloc((void**)&dev_dispRight, size));
+
+	CudaSafeCall(cudaMemcpy(dev_dispLeft, host_dispLeft, size, cudaMemcpyHostToDevice));
+	CudaSafeCall(cudaMemcpy(dev_dispRight, host_dispRight, size, cudaMemcpyHostToDevice));
+
+	detectOcclusionWithCudaDev(dev_out, dev_dispLeft, dev_dispRight, width, height, blockDim, dOcclusion, tolDisp);
+
+	CudaSafeCall(cudaMemcpy(host_out, dev_out, size, cudaMemcpyDeviceToHost));
+
+	float time = timer.GetCounter();
+	if (TIMING) {
+		std::cout << "GPU | detectOcclusionWithCuda : " << time << " ms" << std::endl;
 	}
 
 	CudaSafeCall(cudaDeviceReset());

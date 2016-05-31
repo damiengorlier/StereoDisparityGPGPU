@@ -41,4 +41,7 @@ void detect_occlusion(Image& disparityLeft, const Image& disparityRight,
 void fill_occlusion(const Image& dispDense, const Image& guidance,
                     Image& disparity, int dispMin, int dispMax,
                     const ParamOcclusion& paramOcc);
+
+Image detect_occlusion_GPGPU(const Image& disparityLeft, const Image& disparityRight,
+	float dOcclusion, int tol_disp);
 #endif

@@ -34,6 +34,8 @@ static void usage(const char* name) {
 		<< "GPU parameters:\n"
 		<< "    -GPU acceleration: GPGPU computation ("
 		<< g.gpgpu_acc << ")\n"
+		<< "    -B blockSize : size of the standard block in GPU computation ("
+		<< g.block_size << ")\n"
 		<< "Cost-volume filtering parameters:\n"
 		<< "    -R radius: radius of the guided filter ("
 		<< p.kernel_radius << ")\n"
@@ -106,6 +108,7 @@ void test() {
 	int grayMin = 255, grayMax = 0;
 	ParamGuidedFilter paramGF;
 	paramGF.kernel_radius = 7;
+	ParamOcclusion paramOcc;
 
 	std::string dir = "C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\";
 
@@ -252,20 +255,46 @@ void test() {
 	//Image filter = filter_cost_volume(im1, im2, dMin, dMax, paramGF);
 	//Image filterOnlyGPGPU = filter_cost_volume_GPGPU(im1, im2, dMin, dMax, paramGF);
 	//save_disparity((dir + "disp_filter_Only_GPGPU.png").c_str(), filterOnlyGPGPU, dMin, dMax, grayMin, grayMax);
+
+	// DISPARITY RIGHT-LEFT
+
+	//std::cout << "#------------------------------#" << std::endl;
+	//std::cout << "#     DISPARITY RIGHT-LEFT     #" << std::endl;
+	//std::cout << "#------------------------------#" << std::endl;
+	//Image rightLeft = filter_cost_volume(im2, im1, -dMax, -dMin, paramGF);
+	//Image rightLeftGPGPU = filter_cost_volume_GPGPU(im2, im1, -dMax, -dMin, paramGF);
+	//saveAsTxt(rightLeft, (dir + "rightLeft.txt").c_str());
+	//saveAsTxt(rightLeftGPGPU, (dir + "rightLeftGPGPU.txt").c_str());
+	//saveAsTxt(rightLeft - rightLeftGPGPU, (dir + "rightLeft_diff.txt").c_str());
+
+	// LEFT-RIGHT CONSISTENCY
+	
+	//std::cout << "#--------------------------------#" << std::endl;
+	//std::cout << "#     LEFT-RIGHT CONSISTENCY     #" << std::endl;
+	//std::cout << "#--------------------------------#" << std::endl;
+	//Image disp_left = filter_cost_volume(im1, im2, dMin, dMax, paramGF);
+	//Image disp_leftGPGPU = filter_cost_volume_GPGPU(im1, im2, dMin, dMax, paramGF);
+	//Image disp_right = filter_cost_volume(im2, im1, -dMax, -dMin, paramGF);
+	//Image disp_rightGPGPU = filter_cost_volume_GPGPU(im2, im1, -dMax, -dMin, paramGF);
+	//detect_occlusion(disp_left, disp_right, static_cast<float>(dMin - 1), paramOcc.tol_disp);
+	//Image disp_occGPGPU = detect_occlusion_GPGPU(disp_leftGPGPU, disp_rightGPGPU, static_cast<float>(dMin - 1), paramOcc.tol_disp);
+	//save_disparity((dir + "final.png").c_str(), disp_left, dMin, dMax, grayMin, grayMax);
+	//save_disparity((dir + "finalGPGPU.png").c_str(), disp_occGPGPU, dMin, dMax, grayMin, grayMax);
 }
 
 int main(int argc, char *argv[])
 {
 	// TEST
-	test();
-	exit(2);
+	//test();
+	//exit(2);
 	//
 	int grayMin = 255, grayMax = 0;
 	char sense = 'r'; // Camera motion direction: 'r'=to-right, 'l'=to-left
 	CmdLine cmd;
 
-	ParamGPU paramGPU; // General parameters
+	ParamGPU paramGPU; // GPU parameters
 	cmd.add(make_option('GPU', paramGPU.gpgpu_acc));
+	cmd.add(make_option('B', paramGPU.block_size));
 
 	ParamGuidedFilter paramGF; // Parameters for cost-volume filtering
 	cmd.add(make_option('R', paramGF.kernel_radius));
@@ -304,6 +333,13 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	// Test
+	//paramGPU.gpgpu_acc = 1;
+	//paramGF.kernel_radius = 7;
+	//detectOcc = true;
+	//fillOcc = true;
+	//
+
 	// Load images
 	size_t width, height, width2, height2;
 	float* pix1 = io_png_read_f32_rgb(argv[1], &width, &height);
@@ -331,7 +367,14 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	Image disp = filter_cost_volume(im1, im2, dMin, dMax, paramGF);
+	Image disp(width, height);
+	if (paramGPU.gpgpu_acc) {
+		disp = filter_cost_volume_GPGPU(im1, im2, dMin, dMax, paramGF, paramGPU.block_size);
+	}
+	else {
+		disp = filter_cost_volume(im1, im2, dMin, dMax, paramGF);
+	}
+	//Image disp = filter_cost_volume(im1, im2, dMin, dMax, paramGF);
 	if (!save_disparity(OUTFILE1, disp, dMin, dMax, grayMin, grayMax)) {
 		std::cerr << "Error writing file " << OUTFILE1 << std::endl;
 		return 1;
@@ -339,13 +382,31 @@ int main(int argc, char *argv[])
 
 	if (detectOcc) {
 		std::cout << "Detect occlusions...";
-		Image disp2 = filter_cost_volume(im2, im1, -dMax, -dMin, paramGF);
-		detect_occlusion(disp, disp2, static_cast<float>(dMin - 1),
-			paramOcc.tol_disp);
-		if (!save_disparity(OUTFILE2, disp, dMin, dMax, grayMin, grayMax))  {
-			std::cerr << "Error writing file " << OUTFILE2 << std::endl;
-			return 1;
+		if (paramGPU.gpgpu_acc) {
+			Image disp2 = filter_cost_volume_GPGPU(im2, im1, -dMax, -dMin, paramGF, paramGPU.block_size);
+			disp = detect_occlusion_GPGPU(disp, disp2, static_cast<float>(dMin - 1),
+				paramOcc.tol_disp);
+			if (!save_disparity(OUTFILE2, disp, dMin, dMax, grayMin, grayMax))  {
+				std::cerr << "Error writing file " << OUTFILE2 << std::endl;
+				return 1;
+			}
 		}
+		else {
+			Image disp2 = filter_cost_volume(im2, im1, -dMax, -dMin, paramGF);
+			detect_occlusion(disp, disp2, static_cast<float>(dMin - 1),
+				paramOcc.tol_disp);
+			if (!save_disparity(OUTFILE2, disp, dMin, dMax, grayMin, grayMax))  {
+				std::cerr << "Error writing file " << OUTFILE2 << std::endl;
+				return 1;
+			}
+		}
+		//Image disp2 = filter_cost_volume(im2, im1, -dMax, -dMin, paramGF);
+		//detect_occlusion(disp, disp2, static_cast<float>(dMin - 1),
+		//	paramOcc.tol_disp);
+		//if (!save_disparity(OUTFILE2, disp, dMin, dMax, grayMin, grayMax))  {
+		//	std::cerr << "Error writing file " << OUTFILE2 << std::endl;
+		//	return 1;
+		//}
 	}
 
 	if (fillOcc) {

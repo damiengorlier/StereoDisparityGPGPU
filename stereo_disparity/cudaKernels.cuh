@@ -44,4 +44,9 @@ void computeDisparityMapWithCuda(float *host_out,
 								 const float colorTh, const float gradTh, const float alpha,
 								 const int radius, const float epsilon);
 
+void detectOcclusionWithCuda(float *host_out,
+							 const float *host_dispLeft, const float *host_dispRight,
+							 const int width, const int height, const int blockDim,
+							 const float dOcclusion, const int tolDisp);
+
 #endif
