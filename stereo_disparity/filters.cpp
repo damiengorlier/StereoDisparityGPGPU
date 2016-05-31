@@ -25,7 +25,7 @@
 #include <cassert>
 #include <iostream>
 
-#define TIMING 1
+#define TIMING 0
 
 /// Fill pixels below value \a vMin using values at two closest pixels on same
 /// line above \a vMin. The filling value is the result of \a cmp with the two

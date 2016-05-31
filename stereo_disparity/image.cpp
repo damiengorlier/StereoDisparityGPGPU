@@ -22,7 +22,7 @@
 #include <cassert>
 #include <iostream>
 
-#define TIMING 1
+#define TIMING 0
 
 /// Constructor
 Image::Image(int width, int height)

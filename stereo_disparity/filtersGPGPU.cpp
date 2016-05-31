@@ -33,13 +33,6 @@ Image Image::gradXGPGPU() const {
 Image Image::integralGPGPU(bool addOri) const {
 	Image D(w, h);
 	float *out = D.tab;
-	//float *tmp1 = new float[w*h];
-	//float *tmp2 = new float[w*h];
-
-	//scanWithCuda(tmp1, tab, w, h, addOri);
-	//transposeWithCuda(tmp2, tmp1, w, h, BLOCK);
-	//scanWithCuda(tmp1, tmp2, h, w, addOri);
-	//transposeWithCuda(out, tmp1, h, w, BLOCK);
 
 	integralWithCuda(out, tab, w, h, BLOCK);
 
@@ -66,11 +59,9 @@ Image Image::transposeGPGPU() const {
 }
 
 Image Image::boxFilterGPGPU(int radius) const {
-	//Image I = integralGPGPU(true);
 	Image D(w, h);
 	float *out = D.tab;
 
-	//boxFilterWithCuda(out, I.tab, w, h, BLOCK, radius);
 	boxFilterWithCuda(out, tab, w, h, BLOCK, radius);
 
 	return D;

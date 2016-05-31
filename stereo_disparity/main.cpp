@@ -5,6 +5,7 @@
 #include "cmdLine.h"
 #include "image.h"
 #include "io_png.h"
+#include "deviceProperties.cuh"
 
 #include <fstream>
 #include <string>
@@ -14,22 +15,23 @@ static const char* OUTFILE2 = "disparity_occlusion.png";
 static const char* OUTFILE3 = "disparity_occlusion_filled.png";
 static const char* OUTFILE4 = "disparity_occlusion_filled_smoothed.png";
 
-struct ParamGen {
-	int gpgpu_acc; ///< Use of GPGPU acceleration
+struct ParamGPU {
+	int gpgpu_acc;			///< Use of GPGPU acceleration
+	int block_size;			///< Standard size for the GPU block
 
 	// Constructor with default parameters
-	ParamGen()
-		: gpgpu_acc(1) {}
+	ParamGPU()
+		: gpgpu_acc(1), block_size(16) {}
 };
 
 static void usage(const char* name) {
-	ParamGen g;
+	ParamGPU g;
 	ParamGuidedFilter p;
 	ParamOcclusion q;
 	std::cerr << "Stereo Disparity through Cost Aggregation with Guided Filter\n"
 		<< "Usage: " << name << " [options] im1.png im2.png dmin dmax\n\n"
 		<< "Options (default values in parentheses)\n"
-		<< "General parameters:\n"
+		<< "GPU parameters:\n"
 		<< "    -GPU acceleration: GPGPU computation ("
 		<< g.gpgpu_acc << ")\n"
 		<< "Cost-volume filtering parameters:\n"
@@ -100,14 +102,18 @@ void test() {
 
 	Image r = im1.r();
 	int dMin = 0;
-	int dMax = 4;
+	int dMax = 63;
 	int grayMin = 255, grayMax = 0;
 	ParamGuidedFilter paramGF;
-	paramGF.kernel_radius = 4;
+	paramGF.kernel_radius = 7;
 
 	std::string dir = "C:\\Users\\Damien\\Documents\\Visual Studio 2013\\Projects\\stereo_disparity\\stereo_disparity\\test\\";
 
 	freopen((dir + "_stdout.txt").c_str(), "w", stdout);
+
+	// GPU CAPABILITIES
+
+	printDeviceProperties();
 
 	// RGB TO GRAY
 
@@ -240,11 +246,12 @@ void test() {
 
 	// ONLY GPU
 
-	std::cout << "#------------------#" << std::endl;
-	std::cout << "#     ONLY GPU     #" << std::endl;
-	std::cout << "#------------------#" << std::endl;
-	Image filterOnlyGPGPU = filter_cost_volume_GPGPU(im1, im2, dMin, dMax, paramGF);
-	save_disparity((dir + "disp_filter_Only_GPGPU.png").c_str(), filterOnlyGPGPU, dMin, dMax, grayMin, grayMax);
+	//std::cout << "#------------------#" << std::endl;
+	//std::cout << "#     ONLY GPU     #" << std::endl;
+	//std::cout << "#------------------#" << std::endl;
+	//Image filter = filter_cost_volume(im1, im2, dMin, dMax, paramGF);
+	//Image filterOnlyGPGPU = filter_cost_volume_GPGPU(im1, im2, dMin, dMax, paramGF);
+	//save_disparity((dir + "disp_filter_Only_GPGPU.png").c_str(), filterOnlyGPGPU, dMin, dMax, grayMin, grayMax);
 }
 
 int main(int argc, char *argv[])
@@ -257,8 +264,8 @@ int main(int argc, char *argv[])
 	char sense = 'r'; // Camera motion direction: 'r'=to-right, 'l'=to-left
 	CmdLine cmd;
 
-	ParamGen paramGen; // General parameters
-	cmd.add(make_option('GPU', paramGen.gpgpu_acc));
+	ParamGPU paramGPU; // General parameters
+	cmd.add(make_option('GPU', paramGPU.gpgpu_acc));
 
 	ParamGuidedFilter paramGF; // Parameters for cost-volume filtering
 	cmd.add(make_option('R', paramGF.kernel_radius));

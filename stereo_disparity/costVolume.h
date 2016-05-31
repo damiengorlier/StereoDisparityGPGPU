@@ -40,7 +40,26 @@ struct ParamGuidedFilter {
       epsilon(0.0001f*255*255) {}
 };
 
-//Image cost_volume(Image im1Color, Image im2Color,
+// #------------------------#
+// #     MAIN FUNCTIONS     #
+// #------------------------#
+
+Image filter_cost_volume(Image im1Color, Image im2Color,
+	int dispMin, int dispMax,
+	const ParamGuidedFilter& param);
+
+Image filter_cost_volume_GPGPU(Image im1Color, Image im2Color,
+	int dispMin, int dispMap,
+	const ParamGuidedFilter& param);
+
+// #------------------------#
+// #     TEST FUNCTIONS     #
+// #------------------------#
+
+// CPU
+
+Image covariance(Image im1, Image mean1, Image im2, Image mean2, int r);
+
 std::vector<Image> cost_volume(Image im1Color, Image im2Color,
 	int dispMin, int dispMax,
 	const ParamGuidedFilter& param);
@@ -49,15 +68,10 @@ Image disp_cost_volume(Image im1Color, Image im2Color,
 	int dispMin, int dispMax,
 	const ParamGuidedFilter& param);
 
-Image filter_cost_volume(Image im1Color, Image im2Color,
-                         int dispMin, int dispMax,
-                         const ParamGuidedFilter& param);
+// GPU
 
-
-Image covariance(Image im1, Image mean1, Image im2, Image mean2, int r);
 Image covarianceGPGPU(Image im1, Image mean1, Image im2, Image mean2, int r);
 
-//Image cost_volume_CPU_GPGPU(Image im1Color, Image im2Color,
 std::vector<Image> cost_volume_CPU_GPGPU(Image im1Color, Image im2Color,
 	int dispMin, int dispMax,
 	const ParamGuidedFilter& param);
@@ -70,8 +84,6 @@ Image filter_cost_volume_CPU_GPGPU(Image im1Color, Image im2Color,
 	int dispMin, int dispMax,
 	const ParamGuidedFilter& param);
 
-Image filter_cost_volume_GPGPU(Image im1Color, Image im2Color,
-	int dispMin, int dispMap,
-	const ParamGuidedFilter& param);
+
 
 #endif

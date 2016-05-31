@@ -110,6 +110,7 @@ static void compute_cost(Image im1R, Image im1G, Image im1B,
         }
 }
 
+// Test purpose
 std::vector<Image> cost_volume(Image im1Color, Image im2Color,
 	int dispMin, int dispMax,
 	const ParamGuidedFilter& param) {
@@ -132,8 +133,8 @@ std::vector<Image> cost_volume(Image im1Color, Image im2Color,
 	std::vector<Image> costVolume;
 	costVolume.reserve(dispMax - dispMin + 1);
 
-	TimingCPU timer;
-	timer.StartCounter();
+	//TimingCPU timer;
+	//timer.StartCounter();
 
 	for (int d = dispMin; d <= dispMax; d++) {
 		std::cout << '*' << std::flush;
@@ -143,13 +144,14 @@ std::vector<Image> cost_volume(Image im1Color, Image im2Color,
 		costVolume.push_back(dCost);
 	}
 
-	double time = timer.GetCounter();
-	if (TIMING) {
-		std::cout << "CPU | costVolume : " << time << " ms" << std::endl;
-	}
+	//double time = timer.GetCounter();
+	//if (TIMING) {
+	//	std::cout << "CPU | costVolume : " << time << " ms" << std::endl;
+	//}
 	return costVolume;
 }
 
+// Test purpose
 Image disp_cost_volume(Image im1Color, Image im2Color,
 	int dispMin, int dispMax,
 	const ParamGuidedFilter& param) {
@@ -181,8 +183,8 @@ Image disp_cost_volume(Image im1Color, Image im2Color,
 			d, param, dCost);
 
 		// Winner takes all label selection
-		TimingCPU timer;
-		timer.StartCounter();
+		//TimingCPU timer;
+		//timer.StartCounter();
 
 		for (int y = 0; y < height; y++) {
 			for (int x = 0; x < width; x++) {
@@ -193,10 +195,10 @@ Image disp_cost_volume(Image im1Color, Image im2Color,
 			}
 		}
 
-		double time = timer.GetCounter();
-		if (TIMING) {
-			std::cout << "CPU | disparitySelection : " << time << " ms" << std::endl;
-		}
+		//double time = timer.GetCounter();
+		//if (TIMING) {
+		//	std::cout << "CPU | disparitySelection : " << time << " ms" << std::endl;
+		//}
 	}
 	std::cout << std::endl;
 	return disparity;
@@ -206,6 +208,9 @@ Image disp_cost_volume(Image im1Color, Image im2Color,
 Image filter_cost_volume(Image im1Color, Image im2Color,
                          int dispMin, int dispMax,
                          const ParamGuidedFilter& param) {
+	TimingCPU timer;
+	timer.StartCounter();
+
     Image im1R=im1Color.r(), im1G=im1Color.g(), im1B=im1Color.b();
     Image im2R=im2Color.r(), im2G=im2Color.g(), im2B=im2Color.b();
     const int width=im1R.width(), height=im1R.height();
@@ -239,7 +244,7 @@ Image filter_cost_volume(Image im1Color, Image im2Color,
     Image aR(width,height),aG(width,height),aB(width,height);
     Image dCost(width,height);
     for(int d=dispMin; d<=dispMax; d++) {
-        std::cout << '*' << std::flush;
+        //std::cout << '*' << std::flush;
         compute_cost(im1R,im1G,im1B, im2R,im2G,im2B, gradient1, gradient2,
                      d, param, dCost);
         Image meanCost = dCost.boxFilter(r); // Eq. (14)
@@ -279,6 +284,10 @@ Image filter_cost_volume(Image im1Color, Image im2Color,
                     disparity(x,y) = static_cast<float>(d);
                 }
     }
-    std::cout << std::endl;
+    //std::cout << std::endl;
+	double time = timer.GetCounter();
+	if (TIMING) {
+		std::cout << "CPU | filter_cost_volume : " << time << " ms" << std::endl;
+	}
     return disparity;
 }
