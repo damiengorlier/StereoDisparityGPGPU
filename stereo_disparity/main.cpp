@@ -109,6 +109,25 @@ void test() {
 
 	freopen((dir + "_stdout.txt").c_str(), "w", stdout);
 
+	// RGB TO GRAY
+
+	//std::cout << "#---------------------#" << std::endl;
+	//std::cout << "#     RGB TO GRAY     #" << std::endl;
+	//std::cout << "#---------------------#" << std::endl;
+	//saveImage(im1.rgbToGrayGPGPU(), (dir + "rgbToGray.png").c_str(), 1);
+
+	// OPERATORS
+
+	//std::cout << "#-------------------#" << std::endl;
+	//std::cout << "#     OPERATORS     #" << std::endl;
+	//std::cout << "#-------------------#" << std::endl;
+	//saveAsTxt(r + r, (dir + "plus.txt").c_str());
+	//saveAsTxt(r - r, (dir + "minus.txt").c_str());
+	//saveAsTxt(r * r, (dir + "mul.txt").c_str());
+	//saveAsTxt(r.plusGPGPU(r), (dir + "plusGPGPU.txt").c_str());
+	//saveAsTxt(r.minusGPGPU(r), (dir + "minusGPGPU.txt").c_str());
+	//saveAsTxt(r.multiplyGPGPU(r), (dir + "mulGPGPU.txt").c_str());
+
 	// GRADIENT
 
 	//std::cout << "#------------------#" << std::endl;
@@ -139,20 +158,46 @@ void test() {
 	//std::cout << "#-------------------#" << std::endl;
 	//std::cout << "#     BOXFILTER     #" << std::endl;
 	//std::cout << "#-------------------#" << std::endl;
-	//saveImage(r.boxFilter(4), (dir + "box.png").c_str(), 1);
-	//saveImage(r.boxFilterGPGPU(4), (dir + "boxGPGPU.png").c_str(), 1);
+	//// Différence causée par la gestion des bords
+	//Image box = r.boxFilter(4);
+	//Image boxGPGPU = r.boxFilterGPGPU(4);
+	//saveImage(box, (dir + "box.png").c_str(), 1);
+	//saveImage(boxGPGPU, (dir + "boxGPGPU.png").c_str(), 1);
+	//saveAsTxt(box, (dir + "box.txt").c_str());
+	//saveAsTxt(boxGPGPU, (dir + "boxGPGPU.txt").c_str());
+	//saveAsTxt(box - boxGPGPU, (dir + "box_diff.txt").c_str());
 
-	// OPERATORS
+	// COVARIANCE
 
-	//std::cout << "#-------------------#" << std::endl;
-	//std::cout << "#     OPERATORS     #" << std::endl;
-	//std::cout << "#-------------------#" << std::endl;
-	//saveAsTxt(r + r, (dir + "plus.txt").c_str());
-	//saveAsTxt(r - r, (dir + "minus.txt").c_str());
-	//saveAsTxt(r * r, (dir + "mul.txt").c_str());
-	//saveAsTxt(r.plusGPGPU(r), (dir + "plusGPGPU.txt").c_str());
-	//saveAsTxt(r.minusGPGPU(r), (dir + "minusGPGPU.txt").c_str());
-	//saveAsTxt(r.multiplyGPGPU(r), (dir + "mulGPGPU.txt").c_str());
+	//std::cout << "#--------------------#" << std::endl;
+	//std::cout << "#     COVARIANCE     #" << std::endl;
+	//std::cout << "#--------------------#" << std::endl;
+	//// Différence due au boxFilter
+	//Image g = im1.g();
+	//Image meanR = r.boxFilter(4);
+	//Image meanG = g.boxFilter(4);
+	////Image im1xim2 = r * g;
+	////Image im1xim2GPGPU = r.multiplyGPGPU(g);
+	////Image meanIm1xim2 = im1xim2.boxFilter(4);
+	////Image meanIm1xim2GPGPU = im1xim2GPGPU.boxFilterGPGPU(4);
+	////Image mean1xmean2 = meanR* meanG;
+	////Image mean1xmean2GPGPU = meanR.multiplyGPGPU(meanG);
+	////Image cov = meanIm1xim2 - mean1xmean2;
+	////Image covGPGPU = meanIm1xim2GPGPU - mean1xmean2GPGPU;
+	//Image cov = covariance(r, meanR, g, meanG, 4);
+	//Image covGPGPU = covarianceGPGPU(r, meanR, g, meanG, 4);
+	////saveAsTxt(im1xim2, (dir + "im1xim2.txt").c_str());
+	////saveAsTxt(im1xim2GPGPU, (dir + "im1xim2GPGPU.txt").c_str());
+	////saveAsTxt(meanIm1xim2, (dir + "meanIm1xim2.txt").c_str());
+	////saveAsTxt(meanIm1xim2GPGPU, (dir + "meanIm1xim2GPGPU.txt").c_str());
+	////saveAsTxt(meanIm1xim2 - meanIm1xim2GPGPU, (dir + "meanIm1xim2_diff.txt").c_str());
+	////saveAsTxt(mean1xmean2, (dir + "mean1xmean2.txt").c_str());
+	////saveAsTxt(mean1xmean2GPGPU, (dir + "mean1xmean2GPGPU.txt").c_str());
+	//saveAsTxt(cov, (dir + "cov.txt").c_str());
+	//saveAsTxt(covGPGPU, (dir + "covGPGPU.txt").c_str());
+	//saveAsTxt(cov - covGPGPU, (dir + "cov_diff.txt").c_str());
+	//saveImage(cov, (dir + "cov.png").c_str(), 1);
+	//saveImage(covGPGPU, (dir + "covGPGPU.png").c_str(), 1);
 
 	// COST VOLUME
 
@@ -192,6 +237,14 @@ void test() {
 	//saveAsTxt(filter, (dir + "disp_filter.txt").c_str());
 	//saveAsTxt(filterGPGPU, (dir + "disp_filterGPGPU.txt").c_str());
 	//saveAsTxt(filter - filterGPGPU, (dir + "disp_filter_diff.txt").c_str());
+
+	// ONLY GPU
+
+	std::cout << "#------------------#" << std::endl;
+	std::cout << "#     ONLY GPU     #" << std::endl;
+	std::cout << "#------------------#" << std::endl;
+	Image filterOnlyGPGPU = filter_cost_volume_GPGPU(im1, im2, dMin, dMax, paramGF);
+	save_disparity((dir + "disp_filter_Only_GPGPU.png").c_str(), filterOnlyGPGPU, dMin, dMax, grayMin, grayMax);
 }
 
 int main(int argc, char *argv[])

@@ -59,6 +59,7 @@ public:
 	Image multiplyGPGPU(const Image& I) const;
 
     // Filters (implemented in filters.cpp)
+	Image rgbToGrayGPGPU() const;
     Image gradX() const;
 	Image gradXGPGPU() const;
 	Image integral() const; // Test

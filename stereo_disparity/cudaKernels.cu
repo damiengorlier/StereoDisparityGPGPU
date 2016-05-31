@@ -15,8 +15,13 @@
 
 #define TIMING 1
 #define MAX_FLOAT 3.402823466e+38f
+#define SYNC 1
 
 #define ISPOW2(x) ((x) > 0 && !((x) & (x-1)))
+
+// ######################################
+// #          KERNEL FUNCTIONS          #
+// ######################################
 
 __device__ void inverseSym(float *inverse, const float *matrix) {
 	inverse[0] = matrix[4] * matrix[8] - matrix[5] * matrix[7];
@@ -35,7 +40,30 @@ __device__ void inverseSym(float *inverse, const float *matrix) {
 	inverse[8] = (matrix[0] * matrix[4] - matrix[1] * matrix[3]) * det;
 }
 
-__global__ void operatorKernel(float *dev_out, float *dev_in1, float *dev_in2, const int width, const int height, const int op) {
+__global__ void copyKernel(float *dev_out, const float *dev_in, const int width, const int height) {
+	int i = threadIdx.x + blockIdx.x * blockDim.x;
+	int j = threadIdx.y + blockIdx.y * blockDim.y;
+
+	if ((i < width) && (j < height)) {
+		const int globalIdx = i + j * width;
+
+		dev_out[globalIdx] = dev_in[globalIdx];
+	}
+}
+
+__global__ void rgbToGrayKernel(float *dev_out, const float *dev_imR, const float *dev_imG, const float *dev_imB, const int width, const int height) {
+	// Y = (6969 * R + 23434 * G + 2365 * B) / 32768
+	int i = threadIdx.x + blockIdx.x * blockDim.x;
+	int j = threadIdx.y + blockIdx.y * blockDim.y;
+
+	if ((i < width) && (j < height)) {
+		const int globalIdx = i + j * width;
+
+		dev_out[globalIdx] = (float)(6969 * dev_imR[globalIdx] + 23434 * dev_imG[globalIdx] + 2365 * dev_imB[globalIdx]) / 32768;
+	}
+}
+
+__global__ void operatorKernel(float *dev_out, const float *dev_in1, const float *dev_in2, const int width, const int height, const int op) {
 	//
 	// op : 0 - PLUS
 	//      1 - MINUS
@@ -45,7 +73,7 @@ __global__ void operatorKernel(float *dev_out, float *dev_in1, float *dev_in2, c
 	int i = threadIdx.x + blockIdx.x * blockDim.x;
 	int j = threadIdx.y + blockIdx.y * blockDim.y;
 
-	if ((i <= width) && (j < height)) {
+	if ((i < width) && (j < height)) {
 
 		const int globalIdx = i + j * width;
 
@@ -422,9 +450,340 @@ __global__ void disparitySelectionKernel(float *dev_out, const float *dev_cost_v
 	}
 }
 
-void operatorWithCuda(float *host_out, const float *host_in1, const float *host_in2, const int width, const int height, const int blockDim, const int op) {
+// ###################################
+// #          DEV FUNCTIONS          #
+// ###################################
+
+void copyWithCudaDev(float *dev_out, const float *dev_in, const int width, const int height, const int blockDim) {
+
 	dim3 block(blockDim, blockDim);
 	dim3 grid(ceil(width / blockDim), ceil(height / blockDim));
+
+	copyKernel << < grid, block >> > (dev_out, dev_in, width, height);
+	CudaCheckError();
+	if (SYNC) CudaSafeCall(cudaDeviceSynchronize());
+}
+
+void rgbToGrayWithCudaDev(float *dev_out, const float *dev_imR, const float *dev_imG, const float *dev_imB,
+						  const int width, const int height, const int blockDim) {
+	dim3 block(blockDim, blockDim);
+	dim3 grid(ceil(width / blockDim), ceil(height / blockDim));
+
+	rgbToGrayKernel << < grid, block >> > (dev_out, dev_imR, dev_imG, dev_imB, width, height);
+	CudaCheckError();
+	if (SYNC) CudaSafeCall(cudaDeviceSynchronize());
+}
+
+void operatorWithCudaDev(float *dev_out, const float *dev_in1, const float *dev_in2, const int width, const int height, const int blockDim, const int op) {
+
+	dim3 block(blockDim, blockDim);
+	dim3 grid(ceil(width / blockDim), ceil(height / blockDim));
+
+	operatorKernel << < grid, block >> >(dev_out, dev_in1, dev_in2, width, height, op);
+	CudaCheckError();
+	if (SYNC) CudaSafeCall(cudaDeviceSynchronize());
+}
+
+void gradXWithCudaDev(float *dev_out, const float *dev_in, const int width, const int height, const int blockDim) {
+
+	dim3 block(blockDim + 2, blockDim);
+	dim3 grid(ceil(width / blockDim), ceil(height / blockDim));
+
+	gradXKernel << < grid, block, block.x * block.y * sizeof(float) >> >(dev_out, dev_in, width, height);
+	CudaCheckError();
+	if (SYNC) CudaSafeCall(cudaDeviceSynchronize());
+}
+
+void scanWithCudaDev(float *dev_out, const float *dev_in, const int width, const int height, const int blockDim, const bool addOri) {
+	int blockSize = width;
+
+	if (!ISPOW2(blockSize)) {
+		int x = blockSize;
+		blockSize = 2;
+		while (x >>= 1) blockSize <<= 1;
+	}
+
+	dim3 block(blockSize, 1);
+	dim3 grid(1, height);
+
+	float *dev_tmp = 0;
+	int size = width * height * sizeof(float);
+	CudaSafeCall(cudaMalloc((void**)&dev_tmp, size));
+
+	scanKernel << <grid, block, block.x * block.y * sizeof(float) >> >(dev_tmp, dev_in, block.x, width, height);
+	CudaCheckError();
+	if (SYNC) CudaSafeCall(cudaDeviceSynchronize());
+
+	if (addOri) {
+		operatorWithCudaDev(dev_out, dev_in, dev_tmp, width, height, blockDim, 0);
+	}
+	else {
+		copyWithCudaDev(dev_out, dev_tmp, width, height, blockDim);
+	}
+}
+
+void transposeWithCudaDev(float *dev_out, const float *dev_in, const int width, const int height, const int blockDim) {
+	int a = (width > height) ? width : height;
+	dim3 block(blockDim, blockDim);
+	dim3 grid(ceil(a / blockDim), ceil(a / blockDim));
+
+	transposeKernel << < grid, block, block.x * block.y * sizeof(float) >> >(dev_out, dev_in, width, height);
+	CudaCheckError();
+	if (SYNC) CudaSafeCall(cudaDeviceSynchronize());
+}
+
+void integralWithCudaDev(float *dev_out, const float *dev_in, const int width, const int height, const int blockDim) {
+
+	float *dev_tmp1 = 0; float *dev_tmp2 = 0;/* float *dev_tmp3;*/
+	int size = width * height * sizeof(float);
+	//int a = (width > height) ? width : height;
+
+	//int blockSize1 = width;
+
+	//if (!ISPOW2(blockSize1)) {
+	//	int x = blockSize1;
+	//	blockSize1 = 2;
+	//	while (x >>= 1) blockSize1 <<= 1;
+	//}
+
+	//int blockSize2 = height;
+
+	//if (!ISPOW2(blockSize2)) {
+	//	int x = blockSize2;
+	//	blockSize2 = 2;
+	//	while (x >>= 1) blockSize2 <<= 1;
+	//}
+
+	//dim3 block(blockDim, blockDim);
+	//dim3 grid(ceil(width / blockDim), ceil(height / blockDim));
+	//dim3 blockScan1(blockSize1, 1);
+	//dim3 gridScan1(1, height);
+	//dim3 blockScan2(blockSize2, 1);
+	//dim3 gridScan2(1, width);
+	//dim3 gridTranspose(ceil(a / blockDim), ceil(a / blockDim));
+
+	CudaSafeCall(cudaMalloc((void**)&dev_tmp1, size)); CudaSafeCall(cudaMalloc((void**)&dev_tmp2, size));/* CudaSafeCall(cudaMalloc((void**)&dev_tmp3, size));*/
+
+	scanWithCudaDev(dev_tmp1, dev_in, width, height, blockDim, true);
+	transposeWithCudaDev(dev_tmp2, dev_tmp1, width, height, blockDim);
+	scanWithCudaDev(dev_tmp1, dev_tmp2, height, width, blockDim, true);
+	transposeWithCudaDev(dev_out, dev_tmp1, height, width, blockDim);
+
+	//scanKernel << <gridScan1, blockScan1, blockScan1.x * blockScan1.y * sizeof(float) >> >(dev_tmp1, dev_in, blockScan1.x, width, height);
+	//CudaCheckError();
+	//if (SYNC) CudaSafeCall(cudaDeviceSynchronize());
+	//operatorKernel << < grid, block >> >(dev_tmp2, dev_tmp1, dev_in, width, height, 0);
+	//CudaCheckError();
+	//if (SYNC) CudaSafeCall(cudaDeviceSynchronize());
+	//transposeKernel << < gridTranspose, block, block.x * block.y * sizeof(float) >> >(dev_tmp3, dev_tmp2, width, height);
+	//CudaCheckError();
+	//if (SYNC) CudaSafeCall(cudaDeviceSynchronize());
+	//scanKernel << <gridScan2, blockScan2, blockScan2.x * blockScan2.y * sizeof(float) >> >(dev_tmp1, dev_tmp3, blockScan2.x, height, width);
+	//CudaCheckError();
+	//if (SYNC) CudaSafeCall(cudaDeviceSynchronize());
+	//operatorKernel << < grid, block >> >(dev_tmp2, dev_tmp1, dev_tmp3, height, width, 0);
+	//CudaCheckError();
+	//if (SYNC) CudaSafeCall(cudaDeviceSynchronize());
+	//transposeKernel << < gridTranspose, block, block.x * block.y * sizeof(float) >> >(dev_out, dev_tmp2, height, width);
+	//CudaCheckError();
+	//if (SYNC) CudaSafeCall(cudaDeviceSynchronize());
+
+	CudaSafeCall(cudaFree(dev_tmp1)); CudaSafeCall(cudaFree(dev_tmp2));/* CudaSafeCall(cudaFree(dev_tmp3));*/
+}
+
+void boxFilterWithCudaDev(float *dev_out, const float *dev_in, const int width, const int height, const int blockDim, int radius) {
+
+	float *dev_integral = 0;
+	int size = width * height * sizeof(float);
+
+	CudaSafeCall(cudaMalloc((void**)&dev_integral, size));
+
+	integralWithCudaDev(dev_integral, dev_in, width, height, blockDim);
+
+	dim3 block(blockDim + 2 * radius + 1, blockDim + 2 * radius + 1);
+	dim3 grid(ceil(width / blockDim), ceil(height / blockDim));
+
+	boxFilterKernel << < grid, block, block.x * block.y * sizeof(float) >> >(dev_out, dev_integral, radius, width, height);
+	CudaCheckError();
+	if (SYNC) CudaSafeCall(cudaDeviceSynchronize());
+
+	CudaSafeCall(cudaFree(dev_integral));
+}
+
+void covarianceWithCudaDev(float *dev_out, const float *dev_im1, const float *dev_mean1, const float *dev_im2, const float *dev_mean2,
+						   const int width, const int height, const int blockDim, int radius) {
+
+	float *dev_im1xim2 = 0; float *dev_mean1xmean2 = 0; float *dev_meanIm1xim2 = 0;
+	int size = width * height * sizeof(float);
+
+	CudaSafeCall(cudaMalloc((void**)&dev_im1xim2, size));
+	CudaSafeCall(cudaMalloc((void**)&dev_mean1xmean2, size));
+	CudaSafeCall(cudaMalloc((void**)&dev_meanIm1xim2, size));
+
+	operatorWithCudaDev(dev_im1xim2, dev_im1, dev_im2, width, height, blockDim, 2);
+	operatorWithCudaDev(dev_mean1xmean2, dev_mean1, dev_mean2, width, height, blockDim, 2);
+	boxFilterWithCudaDev(dev_meanIm1xim2, dev_im1xim2, width, height, blockDim, radius);
+	operatorWithCudaDev(dev_out, dev_meanIm1xim2, dev_mean1xmean2, width, height, blockDim, 1);
+
+	CudaSafeCall(cudaFree(dev_im1xim2)); CudaSafeCall(cudaFree(dev_mean1xmean2)); CudaSafeCall(cudaFree(dev_meanIm1xim2));
+}
+
+void costVolumeWithCudaDev(float *dev_out,
+						   const float *dev_im1R, const float *dev_im1G, const float *dev_im1B,
+						   const float *dev_im2R, const float *dev_im2G, const float *dev_im2B,
+						   const float *dev_grad1, float *dev_grad2,
+						   const int width, const int height, const int blockDim,
+						   const int dispMin, const int dispMax, const float colorTh, const float gradTh, const float alpha) {
+
+	int dispSize = dispMax - dispMin + 1;
+	dim3 block(blockDim, blockDim);
+	dim3 grid(ceil(width / blockDim), ceil(height / blockDim), dispSize);
+
+	costVolumeKernel << < grid, block >> >(dev_out,
+										   dev_im1R, dev_im1G, dev_im1B,
+										   dev_im2R, dev_im2G, dev_im2B,
+										   dev_grad1, dev_grad2,
+										   width, height, dispMin, dispMax, colorTh, gradTh, alpha);
+	CudaCheckError();
+	if (SYNC) CudaSafeCall(cudaDeviceSynchronize());
+}
+
+void aCoeffSpaceWithCudaDev(float *dev_out,
+							const float *dev_varRR, const float *dev_varRG, const float *dev_varRB,
+							const float *dev_varGG, const float *dev_varGB, const float *dev_varBB,
+							const float *dev_covarRCost, const float *dev_covarGCost, const float *dev_covarBCost,
+							const int width, const int height, const int blockDim,
+							const float epsilon) {
+	dim3 block(blockDim, blockDim);
+	dim3 grid(ceil(width / blockDim), ceil(height / blockDim));
+
+	aCoeffSpaceKernel << < grid, block >> >(dev_out,
+											dev_varRR, dev_varRG, dev_varRB, dev_varGG, dev_varGB, dev_varBB,
+											dev_covarRCost, dev_covarGCost, dev_covarBCost,
+											width, height, epsilon);
+	CudaCheckError();
+	if (SYNC) CudaSafeCall(cudaDeviceSynchronize());
+}
+
+void bCoeffWithCudaDev(float *dev_out, const float *dev_meanCost,
+					   const float *dev_mean1R, const float *dev_mean1G, const float *dev_mean1B,
+					   const float *dev_aCoeffR, const float *dev_aCoeffG, const float *dev_aCoeffB,
+					   const int width, const int height, const int blockDim, const int radius) {
+
+	float *dev_aCoeffxmeanR = 0; float *dev_aCoeffxmeanG = 0; float *dev_aCoeffxmeanB = 0;
+	float *dev_tmp1 = 0; float *dev_tmp2 = 0;
+	int size = width * height * sizeof(float);
+
+	CudaSafeCall(cudaMalloc((void**)&dev_aCoeffxmeanR, size));
+	CudaSafeCall(cudaMalloc((void**)&dev_aCoeffxmeanG, size));
+	CudaSafeCall(cudaMalloc((void**)&dev_aCoeffxmeanB, size));
+	CudaSafeCall(cudaMalloc((void**)&dev_tmp1, size)); CudaSafeCall(cudaMalloc((void**)&dev_tmp2, size));
+
+	operatorWithCudaDev(dev_aCoeffxmeanR, dev_aCoeffR, dev_mean1R, width, height, blockDim, 2);
+	operatorWithCudaDev(dev_aCoeffxmeanG, dev_aCoeffG, dev_mean1G, width, height, blockDim, 2);
+	operatorWithCudaDev(dev_aCoeffxmeanB, dev_aCoeffB, dev_mean1B, width, height, blockDim, 2);
+
+	operatorWithCudaDev(dev_tmp1, dev_meanCost, dev_aCoeffxmeanR, width, height, blockDim, 1);
+	operatorWithCudaDev(dev_tmp2, dev_tmp1, dev_aCoeffxmeanG, width, height, blockDim, 1);
+	operatorWithCudaDev(dev_tmp1, dev_tmp2, dev_aCoeffxmeanB, width, height, blockDim, 1);
+
+	boxFilterWithCudaDev(dev_out, dev_tmp1, width, height, blockDim, radius);
+
+	CudaSafeCall(cudaFree(dev_aCoeffxmeanR)); CudaSafeCall(cudaFree(dev_aCoeffxmeanG)); CudaSafeCall(cudaFree(dev_aCoeffxmeanB));
+	CudaSafeCall(cudaFree(dev_tmp1)); CudaSafeCall(cudaFree(dev_tmp2));
+}
+
+void filteredCostWithCudaDev(float *dev_out, const float *dev_bCoeff,
+							 const float *dev_aCoeffR, const float *dev_aCoeffG, const float *aCoeffB,
+							 const float *dev_im1R, const float *dev_im1G, const float *dev_im1B,
+							 const int width, const int height, const int blockDim, const int radius) {
+	// b + aCoeffSpace[0].boxFilter(r) * im1R + aCoeffSpace[1].boxFilter(r) * im1G + aCoeffSpace[2].boxFilter(r) * im1B
+	float *dev_meanACoeffR = 0; float *dev_meanACoeffG = 0; float *dev_meanACoeffB = 0;
+	float *dev_aMxImR = 0; float *dev_aMxImG = 0; float *dev_aMxImB = 0;
+	float *dev_tmp1 = 0; float *dev_tmp2 = 0;
+	int size = width * height * sizeof(float);
+
+	CudaSafeCall(cudaMalloc((void**)&dev_meanACoeffR, size));
+	CudaSafeCall(cudaMalloc((void**)&dev_meanACoeffG, size));
+	CudaSafeCall(cudaMalloc((void**)&dev_meanACoeffB, size));
+	CudaSafeCall(cudaMalloc((void**)&dev_aMxImR, size));
+	CudaSafeCall(cudaMalloc((void**)&dev_aMxImG, size));
+	CudaSafeCall(cudaMalloc((void**)&dev_aMxImB, size));
+	CudaSafeCall(cudaMalloc((void**)&dev_tmp1, size)); CudaSafeCall(cudaMalloc((void**)&dev_tmp2, size));
+
+	boxFilterWithCudaDev(dev_meanACoeffR, dev_aCoeffR, width, height, blockDim, radius);
+	boxFilterWithCudaDev(dev_meanACoeffG, dev_aCoeffR, width, height, blockDim, radius);
+	boxFilterWithCudaDev(dev_meanACoeffB, dev_aCoeffR, width, height, blockDim, radius);
+
+	operatorWithCudaDev(dev_aMxImR, dev_meanACoeffR, dev_im1R, width, height, blockDim, 2);
+	operatorWithCudaDev(dev_aMxImG, dev_meanACoeffG, dev_im1G, width, height, blockDim, 2);
+	operatorWithCudaDev(dev_aMxImB, dev_meanACoeffB, dev_im1B, width, height, blockDim, 2);
+
+	operatorWithCudaDev(dev_tmp1, dev_aMxImR, dev_aMxImG, width, height, blockDim, 0);
+	operatorWithCudaDev(dev_tmp2, dev_tmp1, dev_aMxImB, width, height, blockDim, 0);
+	operatorWithCudaDev(dev_out, dev_bCoeff, dev_tmp2, width, height, blockDim, 0);
+
+	CudaSafeCall(cudaFree(dev_meanACoeffR)); CudaSafeCall(cudaFree(dev_meanACoeffG)); CudaSafeCall(cudaFree(dev_meanACoeffB));
+	CudaSafeCall(cudaFree(dev_aMxImR)); CudaSafeCall(cudaFree(dev_aMxImG)); CudaSafeCall(cudaFree(dev_aMxImB));
+	CudaSafeCall(cudaFree(dev_tmp1)); CudaSafeCall(cudaFree(dev_tmp2));
+}
+
+void disparitySelectionWithCudaDev(float *dev_out, const float *dev_costVolume,
+								   const int width, const int height, const int dispMin, const int dispMax) {
+
+	int dispSize = dispMax - dispMin + 1;
+
+	int blockSize = dispSize;
+
+	if (!ISPOW2(blockSize)) {
+		int x = blockSize;
+		blockSize = 2;
+		while (x >>= 1) blockSize <<= 1;
+	}
+
+	dim3 block(1, 1, blockSize);
+	dim3 grid(width, height);
+
+	disparitySelectionKernel << < grid, block, 2 * block.z * sizeof(float) >> >(dev_out, dev_costVolume, width, height, dispMin, dispMax);
+	CudaCheckError();
+	if (SYNC) CudaSafeCall(cudaDeviceSynchronize());
+}
+
+// ####################################
+// #          HOST FUNCTIONS          #
+// ####################################
+
+void rgbToGrayWithCuda(float *host_out, const float *host_imR, const float *host_imG, const float *host_imB,
+					   const int width, const int height, const int blockDim) {
+
+	float *dev_out = 0;
+	float *dev_imR = 0; float *dev_imG = 0; float *dev_imB = 0;
+	int size = width * height * sizeof(float);
+
+	CudaSafeCall(cudaSetDevice(0));
+	CudaSafeCall(cudaMalloc((void**)&dev_out, size));
+	CudaSafeCall(cudaMalloc((void**)&dev_imR, size)); CudaSafeCall(cudaMalloc((void**)&dev_imG, size)); CudaSafeCall(cudaMalloc((void**)&dev_imB, size));
+	CudaSafeCall(cudaMemcpy(dev_imR, host_imR, size, cudaMemcpyHostToDevice));
+	CudaSafeCall(cudaMemcpy(dev_imG, host_imG, size, cudaMemcpyHostToDevice));
+	CudaSafeCall(cudaMemcpy(dev_imB, host_imB, size, cudaMemcpyHostToDevice));
+
+	TimingGPU timer;
+	timer.StartCounter();
+
+	rgbToGrayWithCudaDev(dev_out, dev_imR, dev_imG, dev_imB, width, height, blockDim);
+
+	float time = timer.GetCounter();
+	if (TIMING) {
+		std::cout << "GPU | rgbToGrayKernel : " << time << " ms" << std::endl;
+	}
+
+	CudaSafeCall(cudaMemcpy(host_out, dev_out, size, cudaMemcpyDeviceToHost));
+	CudaSafeCall(cudaDeviceReset());
+}
+
+void operatorWithCuda(float *host_out, const float *host_in1, const float *host_in2, const int width, const int height, const int blockDim, const int op) {
+	//dim3 block(blockDim, blockDim);
+	//dim3 grid(ceil(width / blockDim), ceil(height / blockDim));
 
 	float *dev_in1 = 0;
 	float *dev_in2 = 0;
@@ -441,22 +800,23 @@ void operatorWithCuda(float *host_out, const float *host_in1, const float *host_
 	TimingGPU timer;
 	timer.StartCounter();
 
-	operatorKernel << < grid, block >> >(dev_out, dev_in1, dev_in2, width, height, op);
+	//operatorKernel << < grid, block >> >(dev_out, dev_in1, dev_in2, width, height, op);
+	operatorWithCudaDev(dev_out, dev_in1, dev_in2, width, height, blockDim, op);
 
 	float time = timer.GetCounter();
 	if (TIMING) {
 		std::cout << "GPU | operatorKernel (op=" << op << ") : " << time << " ms" << std::endl;
 	}
 
-	CudaCheckError();
-	CudaSafeCall(cudaDeviceSynchronize());
+	//CudaCheckError();
+	//CudaSafeCall(cudaDeviceSynchronize());
 	CudaSafeCall(cudaMemcpy(host_out, dev_out, size, cudaMemcpyDeviceToHost));
 	CudaSafeCall(cudaDeviceReset());
 }
 
 void gradXWithCuda(float *host_out, const float *host_in, const int width, const int height, const int blockDim) {
-	dim3 block(blockDim + 2, blockDim);
-	dim3 grid(ceil(width / blockDim), ceil(height / blockDim));
+	//dim3 block(blockDim + 2, blockDim);
+	//dim3 grid(ceil(width / blockDim), ceil(height / blockDim));
 
 	float *dev_in = 0;
 	float *dev_out = 0;
@@ -472,36 +832,37 @@ void gradXWithCuda(float *host_out, const float *host_in, const int width, const
 	TimingGPU timer;
 	timer.StartCounter();
 
-	gradXKernel << < grid, block, block.x * block.y * sizeof(float) >> >(dev_out, dev_in, width, height);
+	//gradXKernel << < grid, block, block.x * block.y * sizeof(float) >> >(dev_out, dev_in, width, height);
+	gradXWithCudaDev(dev_out, dev_in, width, height, blockDim);
 
 	float time = timer.GetCounter();
 	if (TIMING) {
 		std::cout << "GPU | gradXKernel : " << time << " ms" << std::endl;
 	}
 
-	CudaCheckError();
-	CudaSafeCall(cudaDeviceSynchronize());
+	//CudaCheckError();
+	//CudaSafeCall(cudaDeviceSynchronize());
 	CudaSafeCall(cudaMemcpy(host_out, dev_out, size, cudaMemcpyDeviceToHost));
 	CudaSafeCall(cudaDeviceReset());
 }
 
-void scanWithCuda(float *host_out, const float *host_in, const int width, const int height, const bool addOri) {
+void scanWithCuda(float *host_out, const float *host_in, const int width, const int height, const int blockDim, const bool addOri) {
 
-	int blockSize = width;
+	//int blockSize = width;
 
 	//printf("		scanWithCuda : %d is power of 2 ? %s\n", blockSize, ISPOW2(blockSize) ? "true" : "false");
 
-	if (!ISPOW2(blockSize)) {
-		int x = blockSize;
-		blockSize = 2;
-		while (x >>= 1) blockSize <<= 1;
-	}
+	//if (!ISPOW2(blockSize)) {
+	//	int x = blockSize;
+	//	blockSize = 2;
+	//	while (x >>= 1) blockSize <<= 1;
+	//}
 
-	dim3 block(blockSize, 1);
-	dim3 grid(1, height);
+	//dim3 block(blockSize, 1);
+	//dim3 grid(1, height);
 
 	float *dev_in = 0;
-	float *dev_tmp = 0;
+	//float *dev_tmp = 0;
 	float *dev_out = 0;
 	int size = width * height * sizeof(float);
 
@@ -515,35 +876,37 @@ void scanWithCuda(float *host_out, const float *host_in, const int width, const 
 	TimingGPU timer;
 	timer.StartCounter();
 
-	scanKernel << <grid, block, block.x * block.y * sizeof(float) >> >(dev_out, dev_in, block.x, width, height);
+	//scanKernel << <grid, block, block.x * block.y * sizeof(float) >> >(dev_out, dev_in, block.x, width, height);
+	scanWithCudaDev(dev_out, dev_in, width, height, blockDim, addOri);
 
 	float time = timer.GetCounter();
 	if (TIMING) {
 		std::cout << "GPU | scanKernel : " << time << " ms" << std::endl;
 	}
 
-	CudaCheckError();
-	CudaSafeCall(cudaDeviceSynchronize());
+	//CudaCheckError();
+	//CudaSafeCall(cudaDeviceSynchronize());
 
-	if (addOri) {
-		CudaSafeCall(cudaMalloc((void**)&dev_tmp, size));
+	//if (addOri) {
+	//	CudaSafeCall(cudaMalloc((void**)&dev_tmp, size));
 
-		operatorKernel << < grid, block >> >(dev_tmp, dev_in, dev_out, width, height, 0);
+	//	operatorKernel << < grid, block >> >(dev_tmp, dev_in, dev_out, width, height, 0);
 
-		CudaCheckError();
-		CudaSafeCall(cudaDeviceSynchronize());
-		CudaSafeCall(cudaMemcpy(host_out, dev_tmp, size, cudaMemcpyDeviceToHost));
-	}
-	else{
-		CudaSafeCall(cudaMemcpy(host_out, dev_out, size, cudaMemcpyDeviceToHost));
-	}
+	//	CudaCheckError();
+	//	CudaSafeCall(cudaDeviceSynchronize());
+	//	CudaSafeCall(cudaMemcpy(host_out, dev_tmp, size, cudaMemcpyDeviceToHost));
+	//}
+	//else{
+	//	CudaSafeCall(cudaMemcpy(host_out, dev_out, size, cudaMemcpyDeviceToHost));
+	//}
+	CudaSafeCall(cudaMemcpy(host_out, dev_out, size, cudaMemcpyDeviceToHost));
 	CudaSafeCall(cudaDeviceReset());
 }
 
 void transposeWithCuda(float *host_out, const float *host_in, const int width, const int height, const int blockDim) {
-	int a = (width > height) ? width : height;
-	dim3 block(blockDim, blockDim);
-	dim3 grid(ceil(a / blockDim), ceil(a / blockDim));
+	//int a = (width > height) ? width : height;
+	//dim3 block(blockDim, blockDim);
+	//dim3 grid(ceil(a / blockDim), ceil(a / blockDim));
 
 	float *dev_in = 0;
 	float *dev_out = 0;
@@ -557,24 +920,48 @@ void transposeWithCuda(float *host_out, const float *host_in, const int width, c
 	TimingGPU timer;
 	timer.StartCounter();
 
-	if (TIMING) {
-		transposeKernel << < grid, block, block.x * block.y * sizeof(float) >> >(dev_out, dev_in, width, height);
-	}
+	//transposeKernel << < grid, block, block.x * block.y * sizeof(float) >> >(dev_out, dev_in, width, height);
+	transposeWithCudaDev(dev_out, dev_in, width, height, blockDim);
 
 	float time = timer.GetCounter();
-	std::cout << "GPU | transposeKernel : " << time << " ms" << std::endl;
+	if (TIMING) {
+		std::cout << "GPU | transposeKernel : " << time << " ms" << std::endl;
+	}
 
-	CudaCheckError();
-	CudaSafeCall(cudaDeviceSynchronize());
+	//CudaCheckError();
+	//CudaSafeCall(cudaDeviceSynchronize());
+	CudaSafeCall(cudaMemcpy(host_out, dev_out, size, cudaMemcpyDeviceToHost));
+	CudaSafeCall(cudaDeviceReset());
+}
+
+void integralWithCuda(float *host_out, const float *host_in, const int width, const int height, const int blockDim) {
+
+	float *dev_in = 0;
+	float *dev_out = 0;
+	int size = width * height * sizeof(float);
+
+	CudaSafeCall(cudaSetDevice(0));
+	CudaSafeCall(cudaMalloc((void**)&dev_out, size));
+	CudaSafeCall(cudaMalloc((void**)&dev_in, size));
+	CudaSafeCall(cudaMemcpy(dev_in, host_in, size, cudaMemcpyHostToDevice));
+
+	TimingGPU timer;
+	timer.StartCounter();
+
+	integralWithCudaDev(dev_out, dev_in, width, height, blockDim);
+
+	float time = timer.GetCounter();
+	if (TIMING) {
+		std::cout << "GPU | integralKernel : " << time << " ms" << std::endl;
+	}
+
 	CudaSafeCall(cudaMemcpy(host_out, dev_out, size, cudaMemcpyDeviceToHost));
 	CudaSafeCall(cudaDeviceReset());
 }
 
 void boxFilterWithCuda(float *host_out, const float *host_in, const int width, const int height, const int blockDim, int radius) {
-	// host_in must be the integral image
-
-	dim3 block(blockDim + 2 * radius + 1, blockDim + 2 * radius + 1);
-	dim3 grid(ceil(width / blockDim), ceil(height / blockDim));
+	//dim3 block(blockDim + 2 * radius + 1, blockDim + 2 * radius + 1);
+	//dim3 grid(ceil(width / blockDim), ceil(height / blockDim));
 
 	float *dev_in = 0;
 	float *dev_out = 0;
@@ -590,15 +977,44 @@ void boxFilterWithCuda(float *host_out, const float *host_in, const int width, c
 	TimingGPU timer;
 	timer.StartCounter();
 
-	boxFilterKernel << < grid, block, block.x * block.y * sizeof(float) >> >(dev_out, dev_in, radius, width, height);
+	//boxFilterKernel << < grid, block, block.x * block.y * sizeof(float) >> >(dev_out, dev_in, radius, width, height);
+	boxFilterWithCudaDev(dev_out, dev_in, width, height, blockDim, radius);
 
 	float time = timer.GetCounter();
 	if (TIMING) {
 		std::cout << "GPU | boxFilterKernel (r=" << radius << ") : " << time << " ms" << std::endl;
 	}
 
-	CudaCheckError();
-	CudaSafeCall(cudaDeviceSynchronize());
+	//CudaCheckError();
+	//CudaSafeCall(cudaDeviceSynchronize());
+	CudaSafeCall(cudaMemcpy(host_out, dev_out, size, cudaMemcpyDeviceToHost));
+	CudaSafeCall(cudaDeviceReset());
+}
+
+void covarianceWithCuda(float *host_out, const float *host_im1, const float *host_mean1, const float *host_im2, const float *host_mean2,
+						const int width, const int height, const int blockDim, int radius) {
+
+	float *dev_out = 0;
+	float *dev_im1 = 0; float *dev_im2 = 0; float *dev_mean1 = 0; float *dev_mean2 = 0;
+	int size = width * height * sizeof(float);
+
+	CudaSafeCall(cudaSetDevice(0));
+	CudaSafeCall(cudaMalloc((void**)&dev_out, size));
+	CudaSafeCall(cudaMalloc((void**)&dev_im1, size)); CudaSafeCall(cudaMalloc((void**)&dev_im2, size));
+	CudaSafeCall(cudaMalloc((void**)&dev_mean1, size)); CudaSafeCall(cudaMalloc((void**)&dev_mean2, size));
+	CudaSafeCall(cudaMemcpy(dev_im1, host_im1, size, cudaMemcpyHostToDevice)); CudaSafeCall(cudaMemcpy(dev_im2, host_im2, size, cudaMemcpyHostToDevice));
+	CudaSafeCall(cudaMemcpy(dev_mean1, host_mean1, size, cudaMemcpyHostToDevice)); CudaSafeCall(cudaMemcpy(dev_mean2, host_mean2, size, cudaMemcpyHostToDevice));
+
+	TimingGPU timer;
+	timer.StartCounter();
+
+	covarianceWithCudaDev(dev_out, dev_im1, dev_mean1, dev_im2, dev_mean2, width, height, blockDim, radius);
+
+	float time = timer.GetCounter();
+	if (TIMING) {
+		std::cout << "GPU | covarianceKernel : " << time << " ms" << std::endl;
+	}
+
 	CudaSafeCall(cudaMemcpy(host_out, dev_out, size, cudaMemcpyDeviceToHost));
 	CudaSafeCall(cudaDeviceReset());
 }
@@ -743,6 +1159,114 @@ void disparitySelectionWithCuda(float *host_out, const float *host_cost_volume,
 
 	CudaCheckError();
 	CudaSafeCall(cudaDeviceSynchronize());
+	CudaSafeCall(cudaMemcpy(host_out, dev_out, size, cudaMemcpyDeviceToHost));
+	CudaSafeCall(cudaDeviceReset());
+}
+
+void computeDisparityMapWithCuda(float *host_out,
+								 const float *host_im1R, const float *host_im1G, const float *host_im1B,	// Image 1 RGB
+								 const float *host_im2R, const float *host_im2G, const float *host_im2B,	// Image 2 RGB
+								 const int width, const int height, const int blockDim,						// Dimensions parameters
+								 const int dispMin, const int dispMax,
+								 const float colorTh, const float gradTh, const float alpha,
+								 const int radius, const float epsilon) {
+
+	int dispSize = dispMax - dispMin + 1;
+	int size = width * height * sizeof(float);
+
+	float *dev_im1R = 0; float *dev_im1G = 0; float *dev_im1B = 0;
+	float *dev_im2R = 0; float *dev_im2G = 0; float *dev_im2B = 0;
+	float *dev_im1Gray = 0; float *dev_im2Gray = 0;
+	float *dev_grad1 = 0; float *dev_grad2 = 0;
+	float *dev_mean1R = 0; float *dev_mean1G = 0; float *dev_mean1B = 0;
+	float *dev_cov1RR = 0; float *dev_cov1RG = 0; float *dev_cov1RB = 0; float *dev_cov1GG = 0; float *dev_cov1GB = 0; float *dev_cov1BB = 0;
+	float *dev_costVolume = 0;
+	float *dev_dCost = 0; float *dev_meanCost = 0; float *dev_cov1RCost = 0; float *dev_cov1GCost = 0; float *dev_cov1BCost = 0;
+	float *dev_aCoeff = 0; float *dev_aCoeffR = 0; float *dev_aCoeffG = 0; float *dev_aCoeffB = 0;
+	float *dev_bCoeff = 0; float *dev_fCost = 0; float *dev_fCostVolume = 0;
+	float *dev_out = 0;
+
+	CudaSafeCall(cudaSetDevice(0));
+
+	// RGB
+	CudaSafeCall(cudaMalloc((void**)&dev_im1R, size)); CudaSafeCall(cudaMalloc((void**)&dev_im1G, size)); CudaSafeCall(cudaMalloc((void**)&dev_im1B, size));
+	CudaSafeCall(cudaMalloc((void**)&dev_im2R, size)); CudaSafeCall(cudaMalloc((void**)&dev_im2G, size)); CudaSafeCall(cudaMalloc((void**)&dev_im2B, size));
+
+	CudaSafeCall(cudaMemcpy(dev_im1R, host_im1R, size, cudaMemcpyHostToDevice)); CudaSafeCall(cudaMemcpy(dev_im1G, host_im1G, size, cudaMemcpyHostToDevice));
+	CudaSafeCall(cudaMemcpy(dev_im1B, host_im1B, size, cudaMemcpyHostToDevice)); CudaSafeCall(cudaMemcpy(dev_im2R, host_im2R, size, cudaMemcpyHostToDevice));
+
+	// Gray
+	CudaSafeCall(cudaMalloc((void**)&dev_im1Gray, size)); CudaSafeCall(cudaMalloc((void**)&dev_im2Gray, size));
+
+	rgbToGrayWithCudaDev(dev_im1Gray, dev_im1R, dev_im1G, dev_im1B, width, height, blockDim);
+	rgbToGrayWithCudaDev(dev_im2Gray, dev_im2R, dev_im2G, dev_im2B, width, height, blockDim);
+
+	// Gradients
+	CudaSafeCall(cudaMalloc((void**)&dev_grad1, size)); CudaSafeCall(cudaMalloc((void**)&dev_grad2, size));
+
+	gradXWithCudaDev(dev_grad1, dev_im1Gray, width, height, blockDim);
+	gradXWithCudaDev(dev_grad2, dev_im2Gray, width, height, blockDim);
+
+	// Means
+	CudaSafeCall(cudaMalloc((void**)&dev_mean1R, size)); CudaSafeCall(cudaMalloc((void**)&dev_mean1G, size)); CudaSafeCall(cudaMalloc((void**)&dev_mean1B, size));
+
+	boxFilterWithCudaDev(dev_mean1R, dev_im1R, width, height, blockDim, radius);
+	boxFilterWithCudaDev(dev_mean1G, dev_im1G, width, height, blockDim, radius);
+	boxFilterWithCudaDev(dev_mean1B, dev_im1B, width, height, blockDim, radius);
+
+	// Covariances
+	CudaSafeCall(cudaMalloc((void**)&dev_cov1RR, size)); CudaSafeCall(cudaMalloc((void**)&dev_cov1RG, size)); CudaSafeCall(cudaMalloc((void**)&dev_cov1RB, size));
+	CudaSafeCall(cudaMalloc((void**)&dev_cov1GG, size)); CudaSafeCall(cudaMalloc((void**)&dev_cov1GB, size)); CudaSafeCall(cudaMalloc((void**)&dev_cov1BB, size));
+
+	covarianceWithCudaDev(dev_cov1RR, dev_im1R, dev_mean1R, dev_im1R, dev_mean1R, width, height, blockDim, radius);
+	covarianceWithCudaDev(dev_cov1RG, dev_im1R, dev_mean1R, dev_im1G, dev_mean1G, width, height, blockDim, radius);
+	covarianceWithCudaDev(dev_cov1RB, dev_im1R, dev_mean1R, dev_im1B, dev_mean1B, width, height, blockDim, radius);
+	covarianceWithCudaDev(dev_cov1GG, dev_im1G, dev_mean1G, dev_im1G, dev_mean1G, width, height, blockDim, radius);
+	covarianceWithCudaDev(dev_cov1GB, dev_im1G, dev_mean1G, dev_im1B, dev_mean1B, width, height, blockDim, radius);
+	covarianceWithCudaDev(dev_cov1BB, dev_im1B, dev_mean1B, dev_im1B, dev_mean1B, width, height, blockDim, radius);
+
+	// Cost Volume
+	CudaSafeCall(cudaMalloc((void**)&dev_costVolume, size * dispSize));
+
+	costVolumeWithCudaDev(dev_costVolume,
+						  dev_im1R, dev_im1G, dev_im1B,
+						  dev_im2R, dev_im2G, dev_im2B,
+						  dev_grad1, dev_grad2,
+						  width, height, blockDim, dispMin, dispMax, colorTh, gradTh, alpha);
+
+	CudaSafeCall(cudaMalloc((void**)&dev_dCost, size)); CudaSafeCall(cudaMalloc((void**)&dev_meanCost, size));
+	CudaSafeCall(cudaMalloc((void**)&dev_cov1RCost, size)); CudaSafeCall(cudaMalloc((void**)&dev_cov1GCost, size)); CudaSafeCall(cudaMalloc((void**)&dev_cov1BCost, size));
+	CudaSafeCall(cudaMalloc((void**)&dev_aCoeff, size * 3));
+	CudaSafeCall(cudaMalloc((void**)&dev_aCoeffR, size)); CudaSafeCall(cudaMalloc((void**)&dev_aCoeffG, size)); CudaSafeCall(cudaMalloc((void**)&dev_aCoeffB, size));
+	CudaSafeCall(cudaMalloc((void**)&dev_bCoeff, size)); CudaSafeCall(cudaMalloc((void**)&dev_fCost, size));
+	CudaSafeCall(cudaMalloc((void**)&dev_fCostVolume, size * dispSize));
+
+	for (int i = 0; i < dispSize; i++) {
+		copyWithCudaDev(dev_dCost, &dev_costVolume[i * width * height], width, height, blockDim);
+		boxFilterWithCudaDev(dev_meanCost, dev_dCost, width, height, blockDim, radius);
+		covarianceWithCudaDev(dev_cov1RCost, dev_im1R, dev_mean1R, dev_dCost, dev_meanCost, width, height, blockDim, radius);
+		covarianceWithCudaDev(dev_cov1GCost, dev_im1G, dev_mean1G, dev_dCost, dev_meanCost, width, height, blockDim, radius);
+		covarianceWithCudaDev(dev_cov1BCost, dev_im1B, dev_mean1B, dev_dCost, dev_meanCost, width, height, blockDim, radius);
+
+		aCoeffSpaceWithCudaDev(dev_aCoeff, dev_cov1RR, dev_cov1RG, dev_cov1RB, dev_cov1GG, dev_cov1GB, dev_cov1BB,
+							   dev_cov1RCost, dev_cov1GCost, dev_cov1BCost, width, height, blockDim, epsilon);
+
+		copyWithCudaDev(dev_aCoeffR, &dev_aCoeff[0], width, height, blockDim);
+		copyWithCudaDev(dev_aCoeffG, &dev_aCoeff[width * height], width, height, blockDim);
+		copyWithCudaDev(dev_aCoeffB, &dev_aCoeff[2 * width * height], width, height, blockDim);
+
+		bCoeffWithCudaDev(dev_bCoeff, dev_meanCost, dev_mean1R, dev_mean1G, dev_mean1B, dev_aCoeffR, dev_aCoeffG, dev_aCoeffB,
+						  width, height, blockDim, radius);
+
+		filteredCostWithCudaDev(dev_fCost, dev_bCoeff, dev_aCoeffR, dev_aCoeffG, dev_aCoeffB, dev_im1R, dev_im1G, dev_im1B,
+								width, height, blockDim, radius);
+
+		copyWithCudaDev(&dev_fCostVolume[i * width * height], dev_fCost, width, height, blockDim);
+	}
+
+	CudaSafeCall(cudaMalloc((void**)&dev_out, size));
+
+	disparitySelectionWithCudaDev(dev_out, dev_fCostVolume, width, height, dispMin, dispMax);
 	CudaSafeCall(cudaMemcpy(host_out, dev_out, size, cudaMemcpyDeviceToHost));
 	CudaSafeCall(cudaDeviceReset());
 }

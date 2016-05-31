@@ -45,7 +45,8 @@ static void inverseSym3(const float* matrix, float* inverse) {
 }
 
 /// Covariance of patches of radius \a r between images, eq. (14).
-static Image covariance(Image im1, Image mean1, Image im2, Image mean2, int r) {
+//static Image covariance(Image im1, Image mean1, Image im2, Image mean2, int r) {
+Image covariance(Image im1, Image mean1, Image im2, Image mean2, int r) {
     return (im1*im2).boxFilter(r) - mean1*mean2;
 }
 
