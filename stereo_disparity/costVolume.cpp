@@ -24,7 +24,7 @@
 #include <limits>
 #include <iostream>
 
-#define TIMING 1
+#define TIMING 0
 
 /// Inverse of symmetric 3x3 matrix
 static void inverseSym3(const float* matrix, float* inverse) {

@@ -9,12 +9,16 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
-#define TIMING 1
+#define TIMING 0
 #define MAX_FLOAT 3.402823466e+38f
 #define SYNC 1
 #define NPAD 2
 
 #define ISPOW2(x) ((x) > 0 && !((x) & (x-1)))
+
+#define NUM_BANKS 16  
+#define LOG_NUM_BANKS 4  
+#define CONFLICT_FREE_OFFSET(n) ((n) >> NUM_BANKS + (n) >> (2 * LOG_NUM_BANKS))
 
 // ######################################
 // #          KERNEL FUNCTIONS          #
@@ -151,13 +155,16 @@ __global__ void scanKernel(float *dev_out, const float *dev_in, const int n, con
 
 
 	const int tdx = threadIdx.x;
+	//int bankOffset = CONFLICT_FREE_OFFSET(tdx);
 	const int globalIdx = i + j * width;
 
 	if ((i < width) && (j < height)) {
 		sharedMemory[tdx] = dev_in[globalIdx];
+		//sharedMemory[tdx + bankOffset] = dev_in[globalIdx];
 	}
 	else {
 		sharedMemory[tdx] = 0;
+		//sharedMemory[tdx + bankOffset] = 0;
 	}
 
 	__syncthreads();
@@ -170,6 +177,8 @@ __global__ void scanKernel(float *dev_out, const float *dev_in, const int n, con
 		{
 			int ai = offset * (2 * tdx + 1) - 1;
 			int bi = offset * (2 * tdx + 2) - 1;
+			//ai += CONFLICT_FREE_OFFSET(ai);
+			//bi += CONFLICT_FREE_OFFSET(bi);
 			sharedMemory[bi] += sharedMemory[ai];
 		}
 		offset *= 2;
@@ -178,6 +187,7 @@ __global__ void scanKernel(float *dev_out, const float *dev_in, const int n, con
 
 	if (tdx == 0) {
 		sharedMemory[n - 1] = 0;
+		//sharedMemory[n - 1 + CONFLICT_FREE_OFFSET(n - 1)] = 0;
 	}
 
 	__syncthreads();
@@ -198,6 +208,7 @@ __global__ void scanKernel(float *dev_out, const float *dev_in, const int n, con
 
 	if ((i < width) && (j < height)) {
 		dev_out[globalIdx] = sharedMemory[tdx];
+		//dev_out[globalIdx] = sharedMemory[tdx + bankOffset];
 	}
 }
 

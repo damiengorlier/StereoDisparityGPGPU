@@ -6,9 +6,12 @@
 #include "image.h"
 #include "io_png.h"
 #include "deviceProperties.cuh"
+#include "TimingCPU.h"
 
 #include <fstream>
 #include <string>
+
+#define TIMING 1
 
 static const char* OUTFILE1 = "disparity.png";
 static const char* OUTFILE2 = "disparity_occlusion.png";
@@ -147,11 +150,11 @@ void test() {
 
 	// TRANSPOSE
 
-	//std::cout << "#-------------------#" << std::endl;
-	//std::cout << "#     TRANSPOSE     #" << std::endl;
-	//std::cout << "#-------------------#" << std::endl;
-	//saveImage(r, (dir + "t_normal.png").c_str(), 1);
-	//saveImage(r.transposeGPGPU(), (dir + "t_transpose.png").c_str(), 1);
+	std::cout << "#-------------------#" << std::endl;
+	std::cout << "#     TRANSPOSE     #" << std::endl;
+	std::cout << "#-------------------#" << std::endl;
+	saveImage(r, (dir + "t_normal.png").c_str(), 1);
+	saveImage(r.transposeGPGPU(), (dir + "t_transpose.png").c_str(), 1);
 
 	// INTEGRAL
 
@@ -273,9 +276,9 @@ void test() {
 	//std::cout << "#     LEFT-RIGHT CONSISTENCY     #" << std::endl;
 	//std::cout << "#--------------------------------#" << std::endl;
 	//Image disp_left = filter_cost_volume(im1, im2, dMin, dMax, paramGF);
-	//Image disp_leftGPGPU = filter_cost_volume_GPGPU(im1, im2, dMin, dMax, paramGF);
+	//Image disp_leftGPGPU = filter_cost_volume_GPGPU(im1, im2, dMin, dMax, paramGF, 16);
 	//Image disp_right = filter_cost_volume(im2, im1, -dMax, -dMin, paramGF);
-	//Image disp_rightGPGPU = filter_cost_volume_GPGPU(im2, im1, -dMax, -dMin, paramGF);
+	//Image disp_rightGPGPU = filter_cost_volume_GPGPU(im2, im1, -dMax, -dMin, paramGF, 16);
 	//detect_occlusion(disp_left, disp_right, static_cast<float>(dMin - 1), paramOcc.tol_disp);
 	//Image disp_occGPGPU = detect_occlusion_GPGPU(disp_leftGPGPU, disp_rightGPGPU, static_cast<float>(dMin - 1), paramOcc.tol_disp);
 	//save_disparity((dir + "final.png").c_str(), disp_left, dMin, dMax, grayMin, grayMax);
@@ -288,6 +291,9 @@ int main(int argc, char *argv[])
 	test();
 	exit(2);
 	//
+	TimingCPU timer;
+	timer.StartCounter();
+
 	int grayMin = 255, grayMax = 0;
 	char sense = 'r'; // Camera motion direction: 'r'=to-right, 'l'=to-left
 	CmdLine cmd;
@@ -334,10 +340,10 @@ int main(int argc, char *argv[])
 	}
 
 	// Test
-	//paramGPU.gpgpu_acc = 1;
-	//paramGF.kernel_radius = 7;
-	//detectOcc = true;
-	//fillOcc = true;
+	paramGPU.gpgpu_acc = 0;
+	paramGF.kernel_radius = 7;
+	detectOcc = true;
+	fillOcc = true;
 	//
 
 	// Load images
@@ -409,6 +415,11 @@ int main(int argc, char *argv[])
 		//}
 	}
 
+	double time = timer.GetCounter();
+	if (TIMING) {
+		std::cout << "Before Post-processing : " << time << " ms" << std::endl;
+	}
+
 	if (fillOcc) {
 		std::cout << "Post-processing: fill occlusions" << std::endl;
 		Image dispDense = disp.clone();
@@ -432,5 +443,9 @@ int main(int argc, char *argv[])
 
 	free(pix1);
 	free(pix2);
+	time = timer.GetCounter();
+	if (TIMING) {
+		std::cout << "TOTAL TIME : " << time << " ms" << std::endl;
+	}
 	return 0;
 }
