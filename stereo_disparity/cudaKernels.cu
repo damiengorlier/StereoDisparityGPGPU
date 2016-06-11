@@ -12,6 +12,7 @@
 #define TIMING 1
 #define MAX_FLOAT 3.402823466e+38f
 #define SYNC 1
+#define NPAD 2
 
 #define ISPOW2(x) ((x) > 0 && !((x) & (x-1)))
 
@@ -208,7 +209,7 @@ __global__ void transposeKernel(float *dev_out, const float *dev_in, const int w
 
 	if ((i < width) && (j < height)) {
 		int globalIdx = i + j * width;
-		int inBlockIdx = threadIdx.y * blockDim.x + threadIdx.x;
+		int inBlockIdx = threadIdx.y * (blockDim.x + NPAD) + threadIdx.x;
 		sharedMemory[inBlockIdx] = dev_in[globalIdx];
 	}
 
@@ -219,7 +220,7 @@ __global__ void transposeKernel(float *dev_out, const float *dev_in, const int w
 
 	if ((i_t < height) && (j_t < width)) {
 		int globalIdx = i_t + j_t * height;
-		int inBlockIdx = threadIdx.x * blockDim.y + threadIdx.y;
+		int inBlockIdx = threadIdx.x * (blockDim.y + NPAD) + threadIdx.y;
 		dev_out[globalIdx] = sharedMemory[inBlockIdx];
 	}
 }
@@ -556,7 +557,7 @@ void transposeWithCudaDev(float *dev_out, const float *dev_in, const int width, 
 	dim3 block(blockDim, blockDim);
 	dim3 grid(ceil(a / blockDim), ceil(a / blockDim));
 
-	transposeKernel << < grid, block, block.x * block.y * sizeof(float) >> >(dev_out, dev_in, width, height);
+	transposeKernel << < grid, block, (block.x + NPAD) * block.y * sizeof(float) >> >(dev_out, dev_in, width, height);
 	CudaCheckError();
 	if (SYNC) CudaSafeCall(cudaDeviceSynchronize());
 }

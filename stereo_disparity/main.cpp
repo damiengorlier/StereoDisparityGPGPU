@@ -285,8 +285,8 @@ void test() {
 int main(int argc, char *argv[])
 {
 	// TEST
-	//test();
-	//exit(2);
+	test();
+	exit(2);
 	//
 	int grayMin = 255, grayMax = 0;
 	char sense = 'r'; // Camera motion direction: 'r'=to-right, 'l'=to-left
